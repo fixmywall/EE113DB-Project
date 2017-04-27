@@ -140,18 +140,29 @@ int Deskew(UCHAR* binary_image, int height, int width) {
 
 }
 
-/*
-	THIS IS A NAIVE ROTATION ALGORITHM
-	SOON THIS WILL BE UPDATED TO IMPLEMENT THE "BLACK-RUNS" ALGORITHM,
-	WHICH REDUCES THE NUMBER OF HOLES IN THE OUTPUT IMAGE
-*/
-//binary_doc: pointer to BinaryDocument object to modify
-//angle_deg: rotation angle in degrees
-void Rotate(BinaryDocument* binary_doc, float angle_rad) {
+/************************************************************
+*	-BINARYROTATE-
+*	binary_doc: pointer to BinaryDocument object to modify
+*	angle_deg: rotation angle in degrees
+*************************************************************/
+void BinaryRotate(BinaryDocument* binary_doc, float angle_rad) {
+	//for very small rotation angles, no need to modify image
+	if (angle_rad < 0.01) {
+		return;
+	}
+
+	UCHAR* og_image = binary_doc->image;
+	int fg_color = !binary_doc->background_color;			//foreground color (0 or 1)
 	int width = binary_doc->width;
 	int height = binary_doc->height;
+	int x_center = width / 2;
+	int y_center = height / 2;
+	int x_dif, y_dif;
 	int total_pixels = width * height;
+	double sin_val = sin(angle_rad);
+	double cos_val = cos(angle_rad);
 	int i;
+	int og_x, og_y;						// indices to the original unrotated image
 
 	//allocate memory for rotated image
 	UCHAR* output_image = malloc(sizeof(UCHAR) * total_pixels);
@@ -164,35 +175,29 @@ void Rotate(BinaryDocument* binary_doc, float angle_rad) {
 	//iterate through the original image row-by-row, transforming each pixel to its rotated position
 	int x, y;
 	for (y = 0; y < binary_doc->height; y++) {
+		y_dif = y_center - y;
 		for (x = 0; x < binary_doc->width; x++) {
-			// check for foreground pixels
-			int pix_val = binary_doc->image[x + y * binary_doc->width];
-			if (pix_val != binary_doc->background_color) {
-				double sin_val, cos_val;
-				sin_val = sin(angle_rad);
-				cos_val = cos(angle_rad);
+			//calculate x index from original image
+			x_dif = x_center - x;
+			og_x = x_center + (int)(-x_dif * cos_val - y_dif * sin_val);	//check boundaries
+			if (og_x < 0 || og_x > width - 1) continue;
 
-				//calculate the rotated x and y values with respect to the origin (center of image)
-				int new_x = (x - width / 2) * cos_val - (y - height / 2) * sin_val;
-				int new_y = (x - width / 2) * cos_val + (y - height / 2) * sin_val;
-				
-				//check boundaries
-				int new_index = (new_x + width / 2) + (new_y + height / 2) * width;
-				if (new_index < 0 || new_index >= total_pixels) {
-					continue;
-				}
-
-				//transform the +/- x and y vals into array index
-				output_image[(new_x + width / 2)  + (new_y + height / 2) * binary_doc->width] = pix_val;
+			og_y = y_center + (int)(-y_dif * cos_val + x_dif * sin_val);	//check boundaries
+			if (og_y < 0 || og_y > height - 1) continue;
+			
+			//check color of original image at calculated index
+			//if it corresponds to foreground color, set the pixel in the output image
+			if (og_image[og_x + og_y*width] == fg_color) {
+				output_image[x + y*width] = fg_color;
 			}
 		}
 	}
 
-	//deallocate original image
-	free(binary_doc->image);
-
 	//set new image
 	binary_doc->image = output_image;
+
+	//deallocate original image
+	free(og_image);
 }
 
 
@@ -225,7 +230,7 @@ int main(void)
 	binary_doc = Binarize(bitmap_grayscale, height, width);
 
 	//rotate binary image
-	Rotate(&binary_doc, PI / 4);
+	BinaryRotate(&binary_doc, PI / 4);
 
 	//write output to file
 	FILE* fp;
