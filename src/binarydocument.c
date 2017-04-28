@@ -2,6 +2,8 @@
 #include <windows.h>
 #include <math.h>
 
+static const double PI = 3.14159265358979323846;
+
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc) {
 	free(doc->image);
@@ -16,16 +18,17 @@ void BinaryDocument_Free(BinaryDocument* doc) {
 *	binary_doc: pointer to BinaryDocument object to modify
 *	angle_deg: rotation angle in degrees
 *************************************************************/
-void Rotate(BinaryDocument* binary_doc, float angle_rad) {
+void Rotate(BinaryDocument* bd, double angle_deg) {
 	//for very small rotation angles, no need to modify image
-	if (angle_rad < 0.01) {
+	if (angle_deg < 0.2) {
 		return;
 	}
 
-	UCHAR* og_image = binary_doc->image;
-	int fg_color = !binary_doc->background_color;			//foreground color (0 or 1)
-	int width = binary_doc->width;
-	int height = binary_doc->height;
+	double angle_rad = angle_deg * PI / 180.0;
+	UCHAR* og_image = bd->image;
+	int fg_color = !bd->background_color;			//foreground color (0 or 1)
+	int width = bd->width;
+	int height = bd->height;
 	int x_center = width / 2;
 	int y_center = height / 2;
 	int x_dif, y_dif;
@@ -40,14 +43,14 @@ void Rotate(BinaryDocument* binary_doc, float angle_rad) {
 
 	//fill output image with the background color
 	for (i = 0; i < total_pixels; i++) {
-		output_image[i] = binary_doc->background_color;
+		output_image[i] = bd->background_color;
 	}
 
 	//iterate through the original image row-by-row, transforming each pixel to its rotated position
 	int x, y;
-	for (y = 0; y < binary_doc->height; y++) {
+	for (y = 0; y < bd->height; y++) {
 		y_dif = y_center - y;
-		for (x = 0; x < binary_doc->width; x++) {
+		for (x = 0; x < bd->width; x++) {
 			//calculate x index from original image
 			x_dif = x_center - x;
 			og_x = x_center + (int)(-x_dif * cos_val - y_dif * sin_val);	//check boundaries
@@ -65,7 +68,7 @@ void Rotate(BinaryDocument* binary_doc, float angle_rad) {
 	}
 
 	//set new image
-	binary_doc->image = output_image;
+	bd->image = output_image;
 
 	//deallocate original image
 	free(og_image);

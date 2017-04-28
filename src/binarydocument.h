@@ -29,7 +29,7 @@ void BinaryDocument_Free(BinaryDocument* doc);
 *	binary_doc: pointer to BinaryDocument object to modify
 *	angle_deg: rotation angle in degrees
 *************************************************************/
-void Rotate(BinaryDocument* binary_doc, float angle_rad);
+void Rotate(BinaryDocument* bd, float angle_rad);
 
 
 /**************************************************************	
@@ -37,7 +37,7 @@ void Rotate(BinaryDocument* binary_doc, float angle_rad);
 *	Computes a skew angle using the Hough Transform
 *	Corrects the skew by calling the Rotate() method
 ***************************************************************/
-void Deskew(BinaryDocument* doc);
+void Deskew(BinaryDocument* bd);
 
 
 

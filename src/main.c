@@ -5,7 +5,7 @@
 #include "qdbmp.h"
 #include "binarydocument.h"
 
-#define PI 3.14159
+#define PI 3.14159265358979323846
 
 
 // input_bmp: pointer to a BMP struct as defined by qdbmp.h
@@ -153,8 +153,8 @@ int main(void)
 	BinaryDocument binary_doc;
 	binary_doc = Binarize(bitmap_grayscale, height, width);
 
-	//rotate binary image
-	Rotate(&binary_doc, PI / 4);
+	//deskew the document
+	Deskew(&binary_doc);
 
 	//write output to file
 	FILE* fp;
