@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <math.h>
 
-static const double PI = 3.14159265358979323846;
+static const double PI = 3.1415927;
 
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc) {
@@ -20,7 +20,7 @@ void BinaryDocument_Free(BinaryDocument* doc) {
 *************************************************************/
 void Rotate(BinaryDocument* bd, double angle_deg) {
 	//for very small rotation angles, no need to modify image
-	if (angle_deg < 0.2) {
+	if (angle_deg < 0.1) {
 		return;
 	}
 

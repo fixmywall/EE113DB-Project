@@ -29,7 +29,7 @@ void BinaryDocument_Free(BinaryDocument* doc);
 *	binary_doc: pointer to BinaryDocument object to modify
 *	angle_deg: rotation angle in degrees
 *************************************************************/
-void Rotate(BinaryDocument* bd, float angle_rad);
+void Rotate(BinaryDocument* bd, double angle_deg);
 
 
 /**************************************************************	

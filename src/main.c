@@ -5,7 +5,7 @@
 #include "qdbmp.h"
 #include "binarydocument.h"
 
-#define PI 3.14159265358979323846
+#define PI 3.1415927
 
 
 // input_bmp: pointer to a BMP struct as defined by qdbmp.h
@@ -139,7 +139,7 @@ int main(void)
 	//
 	//	Read a BMP file from the mass storage device
 	//
-	bmp = BMP_ReadFile("data/ocr_test_receipt.bmp");
+	bmp = BMP_ReadFile("data/skewed_doc.bmp");
 	BMP_CHECK_ERROR(stderr, -1); /* If an error has occurred, notify and exit */
 
 	int width, height;
