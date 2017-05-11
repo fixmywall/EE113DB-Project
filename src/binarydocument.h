@@ -1,5 +1,5 @@
 #ifndef BINARY_DOCUMENT_H
-#define BINARY_DOCMENT_H
+#define BINARY_DOCUMENT_H
 /*
 *	Defines the structure for handling binary bitmap images
 */

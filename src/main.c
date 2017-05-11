@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "qdbmp.h"
 #include "binarydocument.h"
+#include "segment.h"
 
 #define PI 3.1415927
 
@@ -156,6 +157,9 @@ int main(void)
 	//deskew the document
 	Deskew(&binary_doc);
 
+	unsigned char* mask;
+	mask = GetMask(&binary_doc);
+
 	//write output to file
 	FILE* fp;
 	fp = fopen("data/output.txt", "w");
@@ -166,8 +170,16 @@ int main(void)
 	fclose(fp);
 	printf("Finished writing processed image.\n");
 
+	FILE* fp2;
+	fp2 = fopen("data/mask_output.txt", "w"); 
+	for (i = 0; i < height*width; i++) {
+		fprintf(fp2, "%d\n", (int)mask[i]);
+	}
+	fclose(fp2);
+
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);
+	free(mask);
 
 	return 0;
 }
