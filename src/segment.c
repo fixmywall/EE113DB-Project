@@ -3,27 +3,30 @@
 *	After sucessful segmentation, the characters are ready to be passed into the OCR egnine
 */
 #include "segment.h"
+#include "ocr.h"
 
 /*
 *	Returns an image with lines corresponding to the gaps between lines and characters
 *	When superimposed with the original document, the lines should identify each indvidual character and space.
 */
 
-static const double HOR_THRESHOLD = 0.02;		//horizontal slice considered a space if proportion of foreground pixels <= this
+static const double HOR_THRESHOLD = 0.005;		//horizontal slice considered a space if proportion of foreground pixels <= this
 static const double VERT_THRESHOLD = 0;
-static const int PIXEL_BUFFER = 1;
+
 
 /*
-*
+*	min_y:	lowest row that contains text pixels
+*	max_y:	highest row that contains text pixels
 */
-void VerticalSegmentation(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, int max_y) {
+void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, int max_y) {
 	int width = bd->width;
+
 	int line_height = max_y - min_y + 1;
 
 	if (line_height == 0) return;
 
-	int text_run_start = 0;		// beginning of run of text
-	int text_run_end = 0;		// end of run of text
+	int char_min_x = 0;		// beginning of run of text
+	int char_max_x = 0;		// end of run of text
 	int in_text_run = 0;
 	
 	int x, y;
@@ -34,29 +37,78 @@ void VerticalSegmentation(BinaryDocument* bd, unsigned char* mask, int* vpp, int
 		if (!in_text_run) {
 			if ( pct_text > VERT_THRESHOLD) {		// find text in histogram
 				// signal beginning of run
-				text_run_start = x - PIXEL_BUFFER;
-				if (text_run_start < 0) text_run_start = 0;
 				in_text_run = 1;
+				char_min_x = x - 1;			
+				if (char_min_x < 0) char_min_x = 0;	// boundary check
 			}
 		}
 
 		// find the end of a run of text
 		else {			
-			if (pct_text <= VERT_THRESHOLD) {			
+			if (pct_text <= VERT_THRESHOLD) {		// space to right of character detected
 				in_text_run = 0;
-				
-				text_run_end = x + PIXEL_BUFFER;
-				if (text_run_end >= width) text_run_end = width - 1;
+				char_max_x = x;
 
-				// draw vertical lines surrounding character
-				for (y = min_y; y <= max_y; y++) {
-					mask[text_run_start + y * width] = 1;
-					mask[text_run_end + y * width] = 1;
+				int char_width = char_min_x - char_max_x - 1;
+				int char_min_y = min_y - 1;
+				int char_max_y = max_y + 1;
+
+				// find the horizontal boundaries for the character (char_max_y and char_min_y
+				int pixel_row_found = 0;
+				int text_encountered = 0;		// flag that sets to 1 when a horz slice containing text is encountered
+				for (y = min_y; y <= max_y + 1; y++) {
+					int fg_pixel_count = 0;			// pixel count of a horizontal slice of the text region
+					for (x = char_min_x + 1; x < char_max_x; x++) {
+						if (bd->image[x + y * width] == !bd->background_color) {
+							fg_pixel_count++;
+						}
+					}
+
+					if (fg_pixel_count > 0) {
+						//find lowest black pixel in the character
+						if (!text_encountered) {
+							text_encountered = 1;
+							char_min_y = y - 1;
+							char_max_y = y - 1;
+						}
+
+						// find highest black pixel in character 
+						else {
+							char_max_y = y + 1;
+						}
+					}
 				}
+				if (char_min_y < 0) char_min_y = 0;							// boundary check
+				if (char_max_y >= bd->height) char_max_y = bd->height - 1;	// boundary check
+
+				int char_height = char_max_y - char_min_y - 1;
+
+				// draw vertical lines in the mask
+				for (y = char_min_y; y <= char_max_y; y++) {
+					mask[char_min_x + y * width] = 1;
+					mask[char_max_x + y * width] = 1;
+				}
+
+				// draw horizontal lines in the mask
+				for (x = char_min_x; x <= char_max_x; x++) {
+					mask[x + char_min_y * width] = 1;
+					mask[x + char_max_y * width] = 1;
+				}
+
+				// from the character's pixels, obtain the feature vector	
+				int char_pos = char_min_x + 1 + (min_y + 1) * char_width;		// position of the beginning of the character (LLC) with respect to the entire document
+				int* feature_vector;
+				//feature_vector = GetFeatureVector(&bd->image[char_pos], char_height, char_width);
+
+				// do some classification (k-means) with the feature vector to get the actual character	
+
+				//free feature vector
+				//free(feature_vector);
 			}
 		}
 	}
 }
+
 
 unsigned char* GetMask(BinaryDocument* bd) {
 	int height = bd->height;
@@ -96,9 +148,7 @@ unsigned char* GetMask(BinaryDocument* bd) {
 		if (!in_text_run) {
 			if (pct_text > HOR_THRESHOLD) {		// find white space in histogram
 													// signal beginning of run
-				text_run_start = y - PIXEL_BUFFER;
-				if (text_run_start < 0) text_run_start = 0;
-
+				text_run_start = y;
 				in_text_run = 1;
 			}
 		}
@@ -107,15 +157,7 @@ unsigned char* GetMask(BinaryDocument* bd) {
 		else {
 			if (pct_text <= HOR_THRESHOLD) {
 				in_text_run = 0;
-				text_run_end = y + PIXEL_BUFFER;
-				if (text_run_end >= bd->height) text_run_end = height - 1;		// boundary check
-
-
-				// draw horizontal line
-				for (x = 0; x < bd->width; x++) {
-					mask[x + text_run_start * width] = 1;
-					mask[x + text_run_end * width] = 1;
-				}
+				text_run_end = y - 1;
 
 				// do character segmentation on the row
 				// compute vertical projection profile
@@ -127,7 +169,7 @@ unsigned char* GetMask(BinaryDocument* bd) {
 						}
 					}
 				}
-				VerticalSegmentation(bd, mask, vpp, text_run_start, text_run_end);
+				CharSegment(bd, mask, vpp, text_run_start, text_run_end);
 				
 			}
 		}
