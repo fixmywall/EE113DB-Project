@@ -5,6 +5,7 @@
 #include "qdbmp.h"
 #include "binarydocument.h"
 #include "segment.h"
+#include "ocr.h"
 
 #define PI 3.1415927
 
@@ -17,7 +18,7 @@ UCHAR* ConvertImageToGrayscale(BMP* input_bmp, int height, int width) {
 	//convert RGB bmp image to grayscale using the luminosity 
 	int x, y;
 	for (x = 0; x < width; x++) {
-		for (y = 0; y < height; y++) {
+		for (y = height-1; y >= 0 ; y--) {
 			UCHAR pixel_value = 0;
 			UCHAR r, g, b;
 			BMP_GetPixelRGB(input_bmp, x, y, &r, &g, &b);
@@ -29,7 +30,7 @@ UCHAR* ConvertImageToGrayscale(BMP* input_bmp, int height, int width) {
 				pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
 			}
 
-			bitmap_grayscale[x + y * width] = pixel_value;
+			bitmap_grayscale[x + (height - 1 - y) * width] = pixel_value;
 		}
 	}
 
@@ -40,113 +41,52 @@ UCHAR* ConvertImageToGrayscale(BMP* input_bmp, int height, int width) {
 }
 
 
-// Takes in a grayscale image and binarizes it (makes it black and white)
-// Uses Otsu's method, a global thresholding algorithm
-BinaryDocument Binarize(UCHAR* image, int height, int width) {
-	int total_pixels = height * width;		// total number of pixels in the grayscale image
-	int background_color;					// 0 for black, 1 for white background
-	int black_pixel_count = 0;				// count of black pixels in imgae
-	double total_intensity = 0; 			// sum of intensities of each pixel in the image
-	int histogram[256]; 					// histogram of the intensities of the pixels
+void ResizeCharacterTest() {
+	int resized_height = 80;
+	int resized_width = 80;
 
+	char* input_file = "data/test_char_2.bmp";
+	BMP* bmp;
+	UCHAR* bmp_grayscale;
+	bmp = BMP_ReadFile(input_file);
+	BMP_CHECK_ERROR(stderr, -1); /* If an error has occurred, notify and exit */
+
+	int width = BMP_GetWidth(bmp);
+	int height = BMP_GetHeight(bmp);
+
+	bmp_grayscale = ConvertImageToGrayscale(bmp, height, width);
+	BinaryDocument bd = Binarize(bmp_grayscale, height, width);
+
+	UCHAR* resized_character = ResizeCharacter(bd.image, height, width, resized_height, resized_width);
+
+	//write output to file
+	FILE* fp;
+	fp = fopen("data/resized_char.txt", "w");
 	int i;
-	for (i = 0; i < 256; i++) {				// set histogram array to zeros
-		histogram[i] = 0;
+	for (i = 0; i < resized_height * resized_width; i++) {
+		fprintf(fp, "%d\n", resized_character[i]);
 	}
+	fclose(fp);
 
-	int t;
-	for (i = 0; i<total_pixels; i++) {
-		histogram[(int)image[i]]++; 		// populate the color histogram
-	}
-
-	for (i = 0; i < 256; i++) {
-		total_intensity += histogram[i] * i;
-	}
-
-	int optimal_threshold = 0;		// optimal threshold that will divide the pixels into background (dark) and foreground (light)
-	double w_b = 0;					// background weight: fraction of pixels in the background class
-	double w_f = 0; 				// foreground weight: fraction of pixels in the foreground class
-	double sum_b = 0; 				// sum of background intensities
-	double max_inter_var = 0; 		//maximum inter-class variance: defined as w_b * w_f * (u_b - u_f)^2
-
-									// iterate through all possible threshold values to find the optimal one
-									// the optimal threshold is the one that maximizes the between-class variance
-	for (t = 0; t < 256; t++) {		// for each possible threshold (0 to 255)
-		w_b += histogram[t];
-		sum_b += t * histogram[t]; 			// update sum of BG intensities
-		if (w_b == 0) continue; 			// if background is zero, go to next iteration
-
-		w_f = total_pixels - w_b;
-		if (w_f == 0) break;
-
-		double mean_b = sum_b / w_b;			// background mean: mean of pixel intensities in background class
-		double mean_f = (total_intensity - sum_b) / w_f;	// foreground mean
-		double inter_var = w_b * w_f * pow(mean_b - mean_f, 2); 	// inter-class variance for current threshold
-
-		// check if a new inter-class variance maximum has been found
-		// if so, update the optimal threshold to the current value of t
-		if (inter_var > max_inter_var) {
-			max_inter_var = inter_var;
-			optimal_threshold = t;
-		}
-	}
-
-	//apply global threshold to newly allocated output image
-	UCHAR* output_image = (UCHAR*)malloc(sizeof(UCHAR) * total_pixels);
-	for (i = 0; i<height*width; i++) {
-		int intens = image[i];
-		if (intens >= optimal_threshold) {
-			output_image[i] = WHITE_PIXEL; 			// set to white pixel (1 for binary image of 1 BPP)	
-		}
-		else {
-			output_image[i] = BLACK_PIXEL;			// set to black pixel (0 for binary image of 1 BPP)
-			black_pixel_count++;
-		}
-	}
-
-	// set background color to the majority color count
-	int white_pixel_count = total_pixels - black_pixel_count;
-
-	if (white_pixel_count > black_pixel_count) {
-		background_color = WHITE_PIXEL;
-	}
-	else background_color = BLACK_PIXEL;
-
-	//define output struct
-	BinaryDocument output_doc;
-	output_doc.background_color = background_color;
-	output_doc.height = height;
-	output_doc.width = width;
-	output_doc.image = output_image;
-
-	//free the input image
-	free(image);
-
-	return output_doc;
+	free(resized_character);
+	BinaryDocument_Free(&bd);
 }
 
-
-
-//*****************************************************************************
-//
-// This is the main loop that runs the application.
-//
-//*****************************************************************************
-int main(void)
-{
+void DocumentTest() {
+	char* input_file = "data/test_input_4.bmp";
 	BMP* bmp;
 	UCHAR* bitmap_grayscale;
 
 	//
 	//	Read a BMP file from the mass storage device
 	//
-	bmp = BMP_ReadFile("data/skewed_doc.bmp");
+	bmp = BMP_ReadFile(input_file);
 	BMP_CHECK_ERROR(stderr, -1); /* If an error has occurred, notify and exit */
 
 	int width, height;
 	width = BMP_GetWidth(bmp);
 	height = BMP_GetHeight(bmp);
-	
+
 	// convert the BMP data into grayscale UCHAR array
 	bitmap_grayscale = ConvertImageToGrayscale(bmp, height, width);
 
@@ -158,7 +98,7 @@ int main(void)
 	Deskew(&binary_doc);
 
 	unsigned char* mask;
-	mask = GetMask(&binary_doc);
+	mask = SegmentText(&binary_doc);
 
 	//write output to file
 	FILE* fp;
@@ -171,7 +111,7 @@ int main(void)
 	printf("Finished writing processed image.\n");
 
 	FILE* fp2;
-	fp2 = fopen("data/mask_output.txt", "w"); 
+	fp2 = fopen("data/mask_output.txt", "w");
 	for (i = 0; i < height*width; i++) {
 		fprintf(fp2, "%d\n", (int)mask[i]);
 	}
@@ -180,6 +120,15 @@ int main(void)
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);
 	free(mask);
+}
 
+//*****************************************************************************
+//
+// This is the main loop that runs the application.
+//
+//*****************************************************************************
+int main(void)
+{
+	DocumentTest();
 	return 0;
 }

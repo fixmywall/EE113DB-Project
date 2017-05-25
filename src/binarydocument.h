@@ -19,6 +19,8 @@ typedef struct _BinaryDocument {
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc);
 
+// binarizes an RGB image and returns BinaryDocument object
+BinaryDocument Binarize(unsigned char* image, int height, int width);
 
 /************************************************************
 *	-BINARYROTATE-

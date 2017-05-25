@@ -4,7 +4,7 @@
 #include "binarydocument.h"
 
 
-unsigned char* GetMask(BinaryDocument* bd);
+unsigned char* SegmentText(BinaryDocument* bd);
 
 #endif
 

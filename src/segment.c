@@ -49,7 +49,7 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 				in_text_run = 0;
 				char_max_x = x;
 
-				int char_width = char_min_x - char_max_x - 1;
+				int char_width = char_max_x - char_min_x - 1;
 				int char_min_y = min_y - 1;
 				int char_max_y = max_y + 1;
 
@@ -97,20 +97,23 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 
 				// from the character's pixels, obtain the feature vector	
 				int char_pos = char_min_x + 1 + (min_y + 1) * char_width;		// position of the beginning of the character (LLC) with respect to the entire document
-				int* feature_vector;
-				//feature_vector = GetFeatureVector(&bd->image[char_pos], char_height, char_width);
 
-				// do some classification (k-means) with the feature vector to get the actual character	
+				int* feature_vector;
+				feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width);
+
+				// do some classification (k-nearest neighbors) with the feature vector to get the actual character	
 
 				//free feature vector
-				//free(feature_vector);
+				free(feature_vector);
 			}
 		}
 	}
 }
 
-
-unsigned char* GetMask(BinaryDocument* bd) {
+/*
+*	Parses the entire document image and attempts to segment individual characters
+*/
+unsigned char* SegmentText(BinaryDocument* bd) {
 	int height = bd->height;
 	int width = bd->width;
 	int* hpp = (int*)malloc(sizeof(int)*height);		// horizontal projection profile for the entire image
@@ -169,7 +172,7 @@ unsigned char* GetMask(BinaryDocument* bd) {
 						}
 					}
 				}
-				CharSegment(bd, mask, vpp, text_run_start, text_run_end);
+				CharSegment(bd, mask, vpp, text_run_start, text_run_end);		// segment individual characters
 				
 			}
 		}
