@@ -41,6 +41,7 @@ void Rotate(BinaryDocument* bd, double angle_deg);
 ***************************************************************/
 void Deskew(BinaryDocument* bd);
 
+void WriteToFile(char* file_path, unsigned char* image, int height, int width);
 
 
 #endif

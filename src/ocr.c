@@ -1,5 +1,6 @@
 #include "ocr.h"
 #include <math.h>
+#include "binarydocument.h"
 
 static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image for feature extraction
 static const int CHAR_ZONE_COUNT = 16;
@@ -12,13 +13,14 @@ char ClassifyCharacter(int* features) {
 
 }
 
-/*	takes in a binary image of a character and computes the feature vector
+/*	takes in a GRAYSCALE (8 bpp) image of a character and computes the feature vector
 *	feature vector is determined by dividing the resized image into 16 zones
 *	and computing the average pixel value in those zones
 */
-double* GetFeatureVector(char* char_pixels, int height, int width) {
+double* GetFeatureVector(char* char_pixels, int height, int width, int doc_width) {
 	if (height == 0 || width == 0) return;
-	unsigned char* resized_image = ResizeCharacter(char_pixels, height, width, RESIZED_CHAR_DIM, RESIZED_CHAR_DIM);
+	unsigned char* resized_image = ResizeCharacter(char_pixels, height, width, RESIZED_CHAR_DIM, RESIZED_CHAR_DIM, doc_width);
+	WriteToFile("data/resized_char.txt", resized_image, 40, 40);
 	double* feature_vector = (double*)malloc(sizeof(double) * CHAR_ZONE_COUNT);
 	int i;
 	for (i = 0; i < CHAR_ZONE_COUNT; i++) {
@@ -27,16 +29,16 @@ double* GetFeatureVector(char* char_pixels, int height, int width) {
 
 	// divide resized character image into zones
 	int zone_count_width = (int)sqrt(CHAR_ZONE_COUNT);		// number of zones along width
-	int zone_length = RESIZED_CHAR_DIM / zone_count_width;	// length of zone along one dimension
+	int zone_length = RESIZED_CHAR_DIM / zone_count_width;	// length of zone (in pixels) along one dimension in 
 	int zone_pixel_count = (int)pow(zone_length, 2);		// number of pixels in each zone
 
 	int x, y;
 	for (y = 0; y < RESIZED_CHAR_DIM; y++) {
 		for (x = 0; x < RESIZED_CHAR_DIM; x++) {
-			if (resized_image[x + y * RESIZED_CHAR_DIM] == 0) {
-				int zone_index = (x / zone_length) + (y / zone_length) * zone_count_width;
-				feature_vector[zone_index] += 1.0 / zone_pixel_count;		// add the contribution of single pixel to the density
-			}
+			int normalized_pix = resized_image[x + y * width];
+			int zone_index = (x / zone_length) + (y / zone_length) * zone_count_width;
+			feature_vector[zone_index] += 
+				(1.0 - normalized_pix) / zone_pixel_count;		// add the contribution of single pixel to the density
 		}
 	}
 
@@ -67,11 +69,10 @@ float BilinearInterpolation(float q11, float q12, float q21, float q22, float x1
 
 //resizes a character represented by a binary image to an arbitrary size
 //output size is given by parameters output_height and output_width
-unsigned char* ResizeCharacter(unsigned char* image, int height, int width, int out_height, int out_width) {
+unsigned char* ResizeCharacter(unsigned char* image, int height, int width, int out_height, int out_width, int doc_width) {
 	if (out_height == 0 || out_width == 0) return;
 
 	unsigned char* output_image = (unsigned char*)malloc(sizeof(unsigned char) * out_height * out_width);
-	
 
 	int x, y;
 	for (y = 0; y < out_height; y++) {
@@ -79,38 +80,13 @@ unsigned char* ResizeCharacter(unsigned char* image, int height, int width, int 
 			// get the x and y coordinates of the interpolated point
 			float x_interp = ((float)x / out_width) * width;
 			float y_interp = ((float)y / out_height) * height;
-			int x1 = floor(x_interp);
-			int x2 = ceil(x_interp);
-			int y1 = floor(y_interp);
-			int y2 = ceil(y_interp);
+			int x_source = round(x_interp);
+			int y_source = round(y_interp);
+			if (x_source >= width) x_source = width - 1;
+			if (y_source >= height) y_source = height - 1;
 
-			// check x1 is not equal to x2 (otherwise denominator equals zero)
-			// if it is, try to either increment x2 or decrement x1
-			if (x1 == x2) {
-				if (x2 >= out_width - 1) {
-					x1--;
-				}
-				else {
-					x2++;
-				}
-			}
-			// do that same for y1 and y2 
-			if (y1 == y2) {
-				if (y2 >= out_height - 1) {
-					y1--;
-				}
-				else {
-					y2++;
-				}
-			}
-
-			float q11, q12, q21, q22;	// qij: pixel value of input image at point (x_i, y_j)
-			q11 = image[x1 + y1 * width];
-			q12 = image[x1 + y2 * width];
-			q21 = image[x2 + y1 * width];
-			q22 = image[x2 + y2 * width];
-
-			float interp_val = BilinearInterpolation(q11, q12, q21, q22, x1, x2, y1, y2, x_interp, y_interp);
+			// value of interpolated pixel
+			int interp_val = image[x_source + y_source * doc_width];
 			
 			//if (interp_val < 0.5) {
 			//	interp_val = 0;
@@ -118,7 +94,7 @@ unsigned char* ResizeCharacter(unsigned char* image, int height, int width, int 
 			//else {
 			//	interp_val = 1;
 			//}
-			output_image[x + y * out_width] = ceil(interp_val);
+			output_image[x + y * out_width] = interp_val;
 		}
 	}
 	return output_image;

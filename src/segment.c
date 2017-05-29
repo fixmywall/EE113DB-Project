@@ -25,7 +25,7 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 
 	if (line_height == 0) return;
 
-	int char_min_x = 0;		// beginning of run of text
+	int char_min_x = 0;		// pixel left of beginning of run of text
 	int char_max_x = 0;		// end of run of text
 	int in_text_run = 0;
 	
@@ -96,10 +96,10 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 				}
 
 				// from the character's pixels, obtain the feature vector	
-				int char_pos = char_min_x + 1 + (min_y + 1) * char_width;		// position of the beginning of the character (LLC) with respect to the entire document
+				int char_pos = (char_min_x + 1) + (char_min_y + 1) * bd->width;		// position of the beginning of the character (LLC) with respect to the entire document
 
 				int* feature_vector;
-				feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width);
+				feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
 
 				// do some classification (k-nearest neighbors) with the feature vector to get the actual character	
 

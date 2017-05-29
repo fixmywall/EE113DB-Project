@@ -1,6 +1,10 @@
+#define _CRT_SECURE_NO_DEPRECATE
+
 #include "binarydocument.h"
 #include <windows.h>
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 static const double PI = 3.1415927;
 
@@ -157,4 +161,14 @@ void Rotate(BinaryDocument* bd, double angle_deg) {
 
 	//deallocate original image
 	free(og_image);
+}
+
+void WriteToFile(char* file_path, unsigned char* image, int height, int width) {
+	FILE* fp;
+	fp = fopen(file_path, "w");
+	int i;
+	for (i = 0; i < height*width; i++) {
+		fprintf(fp, "%d\n", (int)image[i]);
+	}
+	fclose(fp);
 }

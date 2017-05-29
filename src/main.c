@@ -45,7 +45,7 @@ void ResizeCharacterTest() {
 	int resized_height = 80;
 	int resized_width = 80;
 
-	char* input_file = "data/test_char_2.bmp";
+	char* input_file = "data/test_char.bmp";
 	BMP* bmp;
 	UCHAR* bmp_grayscale;
 	bmp = BMP_ReadFile(input_file);
@@ -57,7 +57,7 @@ void ResizeCharacterTest() {
 	bmp_grayscale = ConvertImageToGrayscale(bmp, height, width);
 	BinaryDocument bd = Binarize(bmp_grayscale, height, width);
 
-	UCHAR* resized_character = ResizeCharacter(bd.image, height, width, resized_height, resized_width);
+	UCHAR* resized_character = ResizeCharacter(bd.image, height, width, resized_height, resized_width, bd.width);
 
 	//write output to file
 	FILE* fp;
@@ -71,6 +71,7 @@ void ResizeCharacterTest() {
 	free(resized_character);
 	BinaryDocument_Free(&bd);
 }
+
 
 void DocumentTest() {
 	char* input_file = "data/test_input_4.bmp";
