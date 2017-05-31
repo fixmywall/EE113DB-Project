@@ -1,6 +1,5 @@
 #ifndef OCR_H
 #define OCR_H
-#include "binarydocument.h"
 
 #define CHAR_COUNT 53
 

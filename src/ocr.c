@@ -1,6 +1,6 @@
 #include "ocr.h"
 #include <math.h>
-#include "binarydocument.h"
+#include "preprocess.h"
 
 static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image for feature extraction
 static const int CHAR_ZONE_COUNT = 16;
@@ -30,15 +30,17 @@ double* GetFeatureVector(char* char_pixels, int height, int width, int doc_width
 	// divide resized character image into zones
 	int zone_count_width = (int)sqrt(CHAR_ZONE_COUNT);		// number of zones along width
 	int zone_length = RESIZED_CHAR_DIM / zone_count_width;	// length of zone (in pixels) along one dimension in 
-	int zone_pixel_count = (int)pow(zone_length, 2);		// number of pixels in each zone
+	int zone_pixel_count = zone_length * zone_length;		// number of pixels in each zone
 
 	int x, y;
 	for (y = 0; y < RESIZED_CHAR_DIM; y++) {
 		for (x = 0; x < RESIZED_CHAR_DIM; x++) {
-			int normalized_pix = resized_image[x + y * width];
+			int normalized_pix = resized_image[x + y * RESIZED_CHAR_DIM];
 			int zone_index = (x / zone_length) + (y / zone_length) * zone_count_width;
-			feature_vector[zone_index] += 
-				(1.0 - normalized_pix) / zone_pixel_count;		// add the contribution of single pixel to the density
+			
+			if (normalized_pix == 0) {
+				feature_vector[zone_index] += 1.0 / zone_pixel_count;		// add the density contribution of a single dark pixel
+			}
 		}
 	}
 

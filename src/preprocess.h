@@ -1,5 +1,5 @@
-#ifndef BINARY_DOCUMENT_H
-#define BINARY_DOCUMENT_H
+#ifndef PREPROCESS_H
+#define PREPROCESS_H
 /*
 *	Defines the structure for handling binary bitmap images
 */
@@ -34,7 +34,7 @@ BinaryDocument Binarize(unsigned char* image, int height, int width);
 void Rotate(BinaryDocument* bd, double angle_deg);
 
 
-/**************************************************************	
+/**************************************************************
 *	de-skews the input binary document
 *	Computes a skew angle using the Hough Transform
 *	Corrects the skew by calling the Rotate() method
@@ -42,6 +42,7 @@ void Rotate(BinaryDocument* bd, double angle_deg);
 void Deskew(BinaryDocument* bd);
 
 void WriteToFile(char* file_path, unsigned char* image, int height, int width);
+
 
 
 #endif

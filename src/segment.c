@@ -4,19 +4,22 @@
 */
 #include "segment.h"
 #include "ocr.h"
+#include "preprocess.h"
 
 /*
 *	Returns an image with lines corresponding to the gaps between lines and characters
 *	When superimposed with the original document, the lines should identify each indvidual character and space.
 */
 
-static const double HOR_THRESHOLD = 0.005;		//horizontal slice considered a space if proportion of foreground pixels <= this
+static const double HOR_THRESHOLD = 0.0045;			//horizontal slice considered a space if proportion of foreground pixels <= this
 static const double VERT_THRESHOLD = 0;
-
+static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height of the character to the line width is below this, classify as a punctuation symbol
 
 /*
 *	min_y:	lowest row that contains text pixels
 *	max_y:	highest row that contains text pixels
+*	Segments characters from the line specified by parameters min_y and max_y and performs feature extraction on
+*	them
 */
 void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, int max_y) {
 	int width = bd->width;
@@ -56,7 +59,7 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 				// find the horizontal boundaries for the character (char_max_y and char_min_y
 				int pixel_row_found = 0;
 				int text_encountered = 0;		// flag that sets to 1 when a horz slice containing text is encountered
-				for (y = min_y; y <= max_y + 1; y++) {
+				for (y = min_y - 1; y <= max_y + 1; y++) {
 					int fg_pixel_count = 0;			// pixel count of a horizontal slice of the text region
 					for (x = char_min_x + 1; x < char_max_x; x++) {
 						if (bd->image[x + y * width] == !bd->background_color) {
@@ -98,8 +101,22 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 				// from the character's pixels, obtain the feature vector	
 				int char_pos = (char_min_x + 1) + (char_min_y + 1) * bd->width;		// position of the beginning of the character (LLC) with respect to the entire document
 
+				int is_small_punct = 0;			// character is small punctuation (period, comma, quote, etc)
+				if ((double)char_width / line_height <= PUNCTUATION_THRESHOLD) {
+					int line_mid = (min_y + max_y) / 2;
+					if (char_min_y > line_mid || char_max_y < line_mid) {
+						is_small_punct = 1;
+					}
+				}
+
 				int* feature_vector;
-				feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
+				if (!is_small_punct) {		// for regular characters and big punctuation
+					feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
+				}
+				else {
+					// extract feature for small punctuation
+					feature_vector = (double*)malloc(1 * sizeof(double));
+				}
 
 				// do some classification (k-nearest neighbors) with the feature vector to get the actual character	
 

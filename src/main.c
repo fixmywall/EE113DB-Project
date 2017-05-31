@@ -3,8 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include "qdbmp.h"
-#include "binarydocument.h"
 #include "segment.h"
+#include "preprocess.h"
 #include "ocr.h"
 
 #define PI 3.1415927
@@ -74,7 +74,7 @@ void ResizeCharacterTest() {
 
 
 void DocumentTest() {
-	char* input_file = "data/test_input_4.bmp";
+	char* input_file = "data/test_camera_1.bmp";
 	BMP* bmp;
 	UCHAR* bitmap_grayscale;
 
