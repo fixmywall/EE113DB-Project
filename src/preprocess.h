@@ -1,5 +1,6 @@
 #ifndef PREPROCESS_H
 #define PREPROCESS_H
+#define _CRT_SECURE_NO_DEPRECATE
 /*
 *	Defines the structure for handling binary bitmap images
 */

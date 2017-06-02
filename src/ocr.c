@@ -1,16 +1,66 @@
 #include "ocr.h"
+#include "preprocess.h"
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "preprocess.h"
 
 static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image for feature extraction
 static const int CHAR_ZONE_COUNT = 16;
+static const char* TRAINING_SET_FILE = "data/training_set.txt";
 
-void TrainCharacter(int* features, char c) {
+TrainingSet InitTrainingSet() {
+	TrainingSet ts;
+	ts.Allocated = 0;
+	ts.Size = 0;
 
+	FILE* fp;
+	fp = fopen(TRAINING_SET_FILE, "rb");
+	while (!feof(fp)) {		// unti we reach end of file
+		TrainingData train_data;
+		train_data.FeatureVector = malloc(sizeof(double) * FEATURE_VECTOR_LENGTH);
+		char* class_label = malloc(1 * sizeof(char));
+		fread(train_data.FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
+		fread(class_label, sizeof(char), 1, fp);
+		train_data.ClassLabel = *class_label;
+
+		AddTrainingData(&ts, &train_data);
+	}
+
+	return ts;
 }
 
-char ClassifyCharacter(int* features) {
+void AddTrainingData(TrainingSet* ts, TrainingData* td) {
+	if (ts->Size == ts->Allocated) {
+		ReallocateTrainingSet(ts);
+	}
+	ts->Data[ts->Size] = *td;
+	ts->Size++;
+}
 
+// writes training set to a text file
+void WriteTrainingSet(TrainingSet* ts) {
+	FILE* fp;
+	fp = fopen(TRAINING_SET_FILE, "w");
+	int i, j;
+	for (i = 0; i < ts->Size; i++) {
+		fwrite(ts->Data[i].FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
+		fwrite(&(ts->Data[i].ClassLabel), sizeof(char), 1, fp);
+	}
+	fclose(fp);
+}
+
+// increments the training data array by increment defined by TRAINING_SET_ALLOCATE_BLOCK
+void ReallocateTrainingSet(TrainingSet* ts) {
+	if (ts->Allocated == 0) {
+		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
+		ts->Data = malloc(sizeof(TrainingData) * TRAINING_SET_ALLOCATE_BLOCK);
+	}
+
+	else {
+		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
+		ts->Data = (TrainingData*)realloc(ts->Data, ts->Allocated * sizeof(TrainingData));
+	}
 }
 
 /*	takes in a GRAYSCALE (8 bpp) image of a character and computes the feature vector

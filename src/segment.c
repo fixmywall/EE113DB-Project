@@ -11,7 +11,7 @@
 *	When superimposed with the original document, the lines should identify each indvidual character and space.
 */
 
-static const double HOR_THRESHOLD = 0.0045;			//horizontal slice considered a space if proportion of foreground pixels <= this
+static const double HOR_THRESHOLD = 0.003;			//horizontal slice considered a space if proportion of foreground pixels <= this
 static const double VERT_THRESHOLD = 0;
 static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height of the character to the line width is below this, classify as a punctuation symbol
 
@@ -21,7 +21,8 @@ static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height o
 *	Segments characters from the line specified by parameters min_y and max_y and performs feature extraction on
 *	them
 */
-void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, int max_y) {
+void CharSegment(	TrainingSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, 
+					int max_y, char* labels, int* char_index, int max_labels) {
 	int width = bd->width;
 
 	int line_height = max_y - min_y + 1;
@@ -110,18 +111,42 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 				}
 
 				int* feature_vector;
+				
+				// take the feature vector for a character
 				if (!is_small_punct) {		// for regular characters and big punctuation
 					feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
+					(*char_index)++;
+
 				}
 				else {
 					// extract feature for small punctuation
 					feature_vector = (double*)malloc(1 * sizeof(double));
 				}
 
-				// do some classification (k-nearest neighbors) with the feature vector to get the actual character	
+				// figure out if point is training data
+				int isTrainingData = 0;
+				if (char_index >= max_labels) {
+					isTrainingData = 1;
+				}
+				else {
+					isTrainingData = 0;
+				}
+
+				// create a training data object
+				if (isTrainingData) {
+					char training_label = labels[*char_index];
+					TrainingData training_data;
+					training_data.ClassLabel = training_label;
+					training_data.FeatureVector = feature_vector;
+					AddTrainingData(ts, &training_data);
+				}
+
+				else {			// do some classification (k-nearest neighbors) with the feature vector to get the actual character
+					// NearestNeighbors();
+					free(feature_vector);
+				}
 
 				//free feature vector
-				free(feature_vector);
 			}
 		}
 	}
@@ -130,7 +155,9 @@ void CharSegment(BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, i
 /*
 *	Parses the entire document image and attempts to segment individual characters
 */
-unsigned char* SegmentText(BinaryDocument* bd) {
+unsigned char* SegmentText(TrainingSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
+	int char_index = 0;
+
 	int height = bd->height;
 	int width = bd->width;
 	int* hpp = (int*)malloc(sizeof(int)*height);		// horizontal projection profile for the entire image
@@ -189,8 +216,7 @@ unsigned char* SegmentText(BinaryDocument* bd) {
 						}
 					}
 				}
-				CharSegment(bd, mask, vpp, text_run_start, text_run_end);		// segment individual characters
-				
+				CharSegment(ts, bd, mask, vpp, text_run_start, text_run_end, symbols, &char_index, num_symbols);		// segment individual characters
 			}
 		}
 	}

@@ -73,8 +73,10 @@ void ResizeCharacterTest() {
 }
 
 
-void DocumentTest() {
-	char* input_file = "data/test_camera_1.bmp";
+void TrainingTest() {
+	char* input_file = "data/ocr_training_set.bmp";
+
+	TrainingSet ts = InitTrainingSet();
 	BMP* bmp;
 	UCHAR* bitmap_grayscale;
 
@@ -99,7 +101,14 @@ void DocumentTest() {
 	Deskew(&binary_doc);
 
 	unsigned char* mask;
-	mask = SegmentText(&binary_doc);
+
+	char class_labels[CHAR_COUNT] = { 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+										'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a',
+										'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', '1',
+										'2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D',
+										'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N' };
+
+	mask = SegmentText(&ts, &binary_doc, class_labels, CHAR_COUNT);
 
 	//write output to file
 	FILE* fp;
@@ -118,6 +127,8 @@ void DocumentTest() {
 	}
 	fclose(fp2);
 
+	WriteTrainingSet(&ts);
+
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);
 	free(mask);
@@ -130,6 +141,6 @@ void DocumentTest() {
 //*****************************************************************************
 int main(void)
 {
-	DocumentTest();
+	TrainingTest();
 	return 0;
 }

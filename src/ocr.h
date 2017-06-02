@@ -1,13 +1,32 @@
 #ifndef OCR_H
 #define OCR_H
 
-#define CHAR_COUNT 53
+#define CHAR_COUNT 62
+#define FEATURE_VECTOR_LENGTH 16
+#define TRAINING_SET_ALLOCATE_BLOCK 100
 
-void TrainCharacter(int* features, char c);
+typedef struct _TrainingData {
+	char ClassLabel;
+	double* FeatureVector;
+} TrainingData;
 
-char ClassifyCharacter(int* features);									// classifies the character from its feature vector
+typedef struct _TrainingSet {
+	int Allocated;
+	int Size;
+	TrainingData* Data;
+} TrainingSet;
 
-double* GetFeatureVector(char* char_pixels, int height, int width, int doc_width);		// returns the feature vector for a character
+char class_labels[CHAR_COUNT];
+
+TrainingSet InitTrainingSet();
+
+void WriteTrainingSet(TrainingSet* ts);
+
+void AddTrainingData(TrainingSet* ts, TrainingData* td);
+
+void ReallocateTrainingSet(TrainingSet* ts);
+
+double* GetFeatureVector(char* char_start, int height, int width, int doc_width);		// returns the feature vector for a character
 
 float BilinearInterpolation(float q11, float q12, float q21, float q22, float x1, float x2, float y1, float y2, float x, float y);
 
