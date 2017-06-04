@@ -7,7 +7,7 @@
 
 static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image for feature extraction
 static const int CHAR_ZONE_COUNT = 16;
-static const char* TRAINING_SET_FILE = "data/training_set.txt";
+static const char* TRAINING_SET_FILE = "data/training_set.bin";
 
 TrainingSet InitTrainingSet() {
 	TrainingSet ts;
@@ -16,16 +16,20 @@ TrainingSet InitTrainingSet() {
 
 	FILE* fp;
 	fp = fopen(TRAINING_SET_FILE, "rb");
-	while (!feof(fp)) {		// unti we reach end of file
-		TrainingData train_data;
-		train_data.FeatureVector = malloc(sizeof(double) * FEATURE_VECTOR_LENGTH);
-		char* class_label = malloc(1 * sizeof(char));
-		fread(train_data.FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
-		fread(class_label, sizeof(char), 1, fp);
-		train_data.ClassLabel = *class_label;
+	if (fp) {			// if file exists
+		while (!feof(fp)) {		// unti we reach end of file
+			TrainingData train_data;
+			train_data.FeatureVector = malloc(sizeof(double) * FEATURE_VECTOR_LENGTH);
+			char* class_label = malloc(1 * sizeof(char));
+			fread(train_data.FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
+			fread(class_label, sizeof(char), 1, fp);
+			train_data.ClassLabel = *class_label;
 
-		AddTrainingData(&ts, &train_data);
+			AddTrainingData(&ts, &train_data);
+		}
+		fclose(fp);
 	}
+	
 
 	return ts;
 }
@@ -41,7 +45,7 @@ void AddTrainingData(TrainingSet* ts, TrainingData* td) {
 // writes training set to a text file
 void WriteTrainingSet(TrainingSet* ts) {
 	FILE* fp;
-	fp = fopen(TRAINING_SET_FILE, "w");
+	fp = fopen(TRAINING_SET_FILE, "wb");
 	int i, j;
 	for (i = 0; i < ts->Size; i++) {
 		fwrite(ts->Data[i].FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
