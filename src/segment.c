@@ -155,7 +155,7 @@ void CharSegment(	TrainingSet* ts, BinaryDocument* bd, unsigned char* mask, int*
 /*
 *	Parses the entire document image and attempts to segment individual characters
 */
-unsigned char* SegmentText(TrainingSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
+void SegmentText(TrainingSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
 	int char_index = 0;
 
 	int height = bd->height;
@@ -220,6 +220,6 @@ unsigned char* SegmentText(TrainingSet* ts, BinaryDocument* bd, char* symbols, i
 			}
 		}
 	}
-	return mask;
+	bd->boundaries = mask;
 }
 

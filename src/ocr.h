@@ -5,6 +5,8 @@
 #define FEATURE_VECTOR_LENGTH 16
 #define TRAINING_SET_ALLOCATE_BLOCK 100
 
+#include "preprocess.h"
+
 typedef struct _TrainingData {
 	char ClassLabel;
 	double* FeatureVector;
@@ -19,6 +21,8 @@ typedef struct _TrainingSet {
 char class_labels[CHAR_COUNT];
 
 TrainingSet InitTrainingSet();
+
+void TrainTrainingSet(TrainingSet* ts, BinaryDocument* bd, char* class_labels, int num_labels);
 
 void WriteTrainingSet(TrainingSet* ts);
 

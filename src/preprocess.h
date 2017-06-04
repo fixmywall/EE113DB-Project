@@ -9,19 +9,23 @@
 #define WHITE_PIXEL 1
 
 #include <stdlib.h>
+#include "qdbmp.h"
 
 typedef struct _BinaryDocument {
-	unsigned char* image;			// each element corresponds to one pixel for computation 
+	unsigned char* image;			// each element corresponds to one pixel for computation
+	unsigned char* boundaries;	
 	int background_color;	// 0 for white background, 1 for black background
 	int height;				// height of the image in pixels
 	int width;				// width of the image in pixels
 } BinaryDocument;
 
+unsigned char* ConvertImageToGrayscale(BMP* input_bmp, int height, int width);
+
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc);
 
-// binarizes an RGB image and returns BinaryDocument object
-BinaryDocument Binarize(unsigned char* image, int height, int width);
+// binarizes an an RGB image with file name as a parameter
+BinaryDocument Binarize(unsigned char* input_file);
 
 /************************************************************
 *	-BINARYROTATE-

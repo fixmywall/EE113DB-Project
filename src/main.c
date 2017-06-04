@@ -9,55 +9,14 @@
 
 #define PI 3.1415927
 
-
-// input_bmp: pointer to a BMP struct as defined by qdbmp.h
-UCHAR* ConvertImageToGrayscale(BMP* input_bmp, int height, int width) {
-	//allocate memory for output grayscale bitmap (1 byte per pixel)
-	UCHAR* bitmap_grayscale = (UCHAR*)malloc(sizeof(UCHAR) * height * width);
-
-	//convert RGB bmp image to grayscale using the luminosity 
-	int x, y;
-	for (x = 0; x < width; x++) {
-		for (y = height-1; y >= 0 ; y--) {
-			UCHAR pixel_value = 0;
-			UCHAR r, g, b;
-			BMP_GetPixelRGB(input_bmp, x, y, &r, &g, &b);
-
-			if (BMP_GetBitsPerPixel(input_bmp) == 8) {
-				pixel_value = b;
-			}
-			else {
-				pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
-			}
-
-			bitmap_grayscale[x + (height - 1 - y) * width] = pixel_value;
-		}
-	}
-
-	//free input color image
-	BMP_Free(input_bmp);
-
-	return bitmap_grayscale;
-}
-
-
 void ResizeCharacterTest() {
 	int resized_height = 80;
 	int resized_width = 80;
 
 	char* input_file = "data/test_char.bmp";
-	BMP* bmp;
-	UCHAR* bmp_grayscale;
-	bmp = BMP_ReadFile(input_file);
-	BMP_CHECK_ERROR(stderr, -1); /* If an error has occurred, notify and exit */
+	BinaryDocument bd = Binarize(input_file);
 
-	int width = BMP_GetWidth(bmp);
-	int height = BMP_GetHeight(bmp);
-
-	bmp_grayscale = ConvertImageToGrayscale(bmp, height, width);
-	BinaryDocument bd = Binarize(bmp_grayscale, height, width);
-
-	UCHAR* resized_character = ResizeCharacter(bd.image, height, width, resized_height, resized_width, bd.width);
+	UCHAR* resized_character = ResizeCharacter(bd.image, bd.height, bd.width, resized_height, resized_width, bd.width);
 
 	//write output to file
 	FILE* fp;
@@ -77,25 +36,12 @@ void TrainingTest() {
 	char* input_file = "data/ocr_training_set.bmp";
 
 	TrainingSet ts = InitTrainingSet();
-	BMP* bmp;
-	UCHAR* bitmap_grayscale;
-
-	//
-	//	Read a BMP file from the mass storage device
-	//
-	bmp = BMP_ReadFile(input_file);
-	BMP_CHECK_ERROR(stderr, -1); /* If an error has occurred, notify and exit */
-
-	int width, height;
-	width = BMP_GetWidth(bmp);
-	height = BMP_GetHeight(bmp);
-
-	// convert the BMP data into grayscale UCHAR array
-	bitmap_grayscale = ConvertImageToGrayscale(bmp, height, width);
 
 	//convert to binary image
 	BinaryDocument binary_doc;
-	binary_doc = Binarize(bitmap_grayscale, height, width);
+	binary_doc = Binarize(input_file);
+	int height = binary_doc.height;
+	int width = binary_doc.width;
 
 	//deskew the document
 	Deskew(&binary_doc);
@@ -108,7 +54,7 @@ void TrainingTest() {
 										'2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D',
 										'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N' };
 
-	mask = SegmentText(&ts, &binary_doc, class_labels, CHAR_COUNT);
+	TrainTrainingSet(&ts, &binary_doc, class_labels, CHAR_COUNT);
 
 	//write output to file
 	FILE* fp;
@@ -123,7 +69,7 @@ void TrainingTest() {
 	FILE* fp2;
 	fp2 = fopen("data/mask_output.txt", "w");
 	for (i = 0; i < height*width; i++) {
-		fprintf(fp2, "%d\n", (int)mask[i]);
+		fprintf(fp2, "%d\n", (int)binary_doc.boundaries[i]);
 	}
 	fclose(fp2);
 
@@ -131,7 +77,6 @@ void TrainingTest() {
 
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);
-	free(mask);
 }
 
 //*****************************************************************************

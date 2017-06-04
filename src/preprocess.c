@@ -1,4 +1,5 @@
 #include "preprocess.h"
+#include "qdbmp.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,14 +10,60 @@
 
 static const double PI = 3.1415927;
 
+// input_bmp: pointer to a BMP struct as defined by qdbmp.h
+UCHAR* ConvertImageToGrayscale(BMP* input_bmp, int height, int width) {
+	//allocate memory for output grayscale bitmap (1 byte per pixel)
+	UCHAR* bitmap_grayscale = (UCHAR*)malloc(sizeof(UCHAR) * height * width);
+
+	//convert RGB bmp image to grayscale using the luminosity 
+	int x, y;
+	for (x = 0; x < width; x++) {
+		for (y = height - 1; y >= 0; y--) {
+			UCHAR pixel_value = 0;
+			UCHAR r, g, b;
+			BMP_GetPixelRGB(input_bmp, x, y, &r, &g, &b);
+
+			if (BMP_GetBitsPerPixel(input_bmp) == 8) {
+				pixel_value = b;
+			}
+			else {
+				pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
+			}
+
+			bitmap_grayscale[x + (height - 1 - y) * width] = pixel_value;
+		}
+	}
+
+	//free input color image
+	BMP_Free(input_bmp);
+
+	return bitmap_grayscale;
+}
+
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc) {
 	free(doc->image);
+	free(doc->boundaries);
 }
 
 // Takes in a grayscale image and binarizes it (makes it black and white)
 // Uses Otsu's method, a global thresholding algorithm
-BinaryDocument Binarize(unsigned char* image, int height, int width) {
+BinaryDocument Binarize(unsigned char* input_file) {
+	BMP* bmp;
+	UCHAR* bmp_grayscale;
+	bmp = BMP_ReadFile(input_file);
+
+	int height, width;
+	if (BMP_GetError() != BMP_OK) { /* If an error has occurred, notify and exit */
+		width = 0;
+		height = 0;
+	}
+	else {
+		width = BMP_GetWidth(bmp);
+		height = BMP_GetHeight(bmp);
+	}
+	unsigned char* image = ConvertImageToGrayscale(bmp, height, width);
+
 	int total_pixels = height * width;		// total number of pixels in the grayscale image
 	int background_color;					// 0 for black, 1 for white background
 	int black_pixel_count = 0;				// count of black pixels in imgae

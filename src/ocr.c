@@ -42,6 +42,11 @@ void AddTrainingData(TrainingSet* ts, TrainingData* td) {
 	ts->Size++;
 }
 
+// trains the training set referenced by ts using the input Binary Document and class labels
+void TrainTrainingSet(TrainingSet* ts, BinaryDocument* bd, char* class_labels, int num_labels) {
+	SegmentText(ts, bd, class_labels, num_labels);
+}
+
 // writes training set to a text file
 void WriteTrainingSet(TrainingSet* ts) {
 	FILE* fp;
