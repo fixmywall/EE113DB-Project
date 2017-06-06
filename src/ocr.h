@@ -7,30 +7,36 @@
 
 #include "preprocess.h"
 
-typedef struct _TrainingData {
+typedef struct _DataPoint {
 	char ClassLabel;
 	double* FeatureVector;
-} TrainingData;
+} DataPoint;
 
-typedef struct _TrainingSet {
+typedef struct _DataSet {
 	int Allocated;
 	int Size;
-	TrainingData* Data;
-} TrainingSet;
+	DataPoint** Data;		// array of TrainingData pointers
+} DataSet;
 
 char class_labels[CHAR_COUNT];
 
-TrainingSet InitTrainingSet();
+DataSet* InitTrainingSet();
 
-void TrainTrainingSet(TrainingSet* ts, BinaryDocument* bd, char* class_labels, int num_labels);
+DataSet* EmptyDataSet();
 
-void WriteTrainingSet(TrainingSet* ts);
+void FreeDataSet(DataSet* ds);
 
-void AddTrainingData(TrainingSet* ts, TrainingData* td);
+DataPoint* NewDataPoint(char class_label, double* feature_vector);
 
-void ReallocateTrainingSet(TrainingSet* ts);
+void TrainTrainingSet(DataSet* ts, BinaryDocument* bd, char* class_labels, int num_labels);
+
+void WriteTrainingSet(DataSet* ts);
+
+void AddTrainingData(DataSet* ts, DataPoint* td);
 
 double* GetFeatureVector(char* char_start, int height, int width, int doc_width);		// returns the feature vector for a character
+
+char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k);
 
 float BilinearInterpolation(float q11, float q12, float q21, float q22, float x1, float x2, float y1, float y2, float x, float y);
 

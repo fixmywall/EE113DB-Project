@@ -35,7 +35,6 @@ void ResizeCharacterTest() {
 void TrainingTest() {
 	char* input_file = "data/ocr_training_set.bmp";
 
-	TrainingSet ts = InitTrainingSet();
 
 	//convert to binary image
 	BinaryDocument binary_doc;
@@ -54,7 +53,7 @@ void TrainingTest() {
 										'2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D',
 										'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N' };
 
-	TrainTrainingSet(&ts, &binary_doc, class_labels, CHAR_COUNT);
+	TrainTrainingSet(ts, &binary_doc, class_labels, CHAR_COUNT);
 
 	//write output to file
 	FILE* fp;
@@ -73,7 +72,8 @@ void TrainingTest() {
 	}
 	fclose(fp2);
 
-	WriteTrainingSet(&ts);
+	WriteTrainingSet(ts);
+	FreeDataSet(ts);
 
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);

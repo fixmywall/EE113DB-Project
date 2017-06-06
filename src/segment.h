@@ -4,10 +4,10 @@
 #include "preprocess.h"
 #include "ocr.h"
 
-void CharSegment(	TrainingSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y,
-					int max_y, char* labels, int* char_index, int max_labels);
+DataSet* CharSegment(	DataSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y,
+							int max_y, char* labels, int* char_index, int max_labels);
 
-void SegmentText( TrainingSet* ts, BinaryDocument* bd, char* labels, int num_labels);
+void SegmentText( DataSet* ts, BinaryDocument* bd, char* labels, int num_labels);
 
 #endif
 

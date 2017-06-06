@@ -9,67 +9,103 @@ static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image
 static const int CHAR_ZONE_COUNT = 16;
 static const char* TRAINING_SET_FILE = "data/training_set.bin";
 
-TrainingSet InitTrainingSet() {
-	TrainingSet ts;
-	ts.Allocated = 0;
-	ts.Size = 0;
+DataSet* InitTrainingSet() {
+	DataSet* ts = malloc(sizeof(DataSet));
+	ts->Allocated = 0;
+	ts->Size = 0;
 
 	FILE* fp;
 	fp = fopen(TRAINING_SET_FILE, "rb");
-	if (fp) {			// if file exists
-		while (!feof(fp)) {		// unti we reach end of file
-			TrainingData train_data;
-			train_data.FeatureVector = malloc(sizeof(double) * FEATURE_VECTOR_LENGTH);
-			char* class_label = malloc(1 * sizeof(char));
-			fread(train_data.FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
-			fread(class_label, sizeof(char), 1, fp);
-			train_data.ClassLabel = *class_label;
-
-			AddTrainingData(&ts, &train_data);
+	if (fp) {			// parse file if it exists
+		while (!feof(fp)) {		// parse until end of file
+			// parse the file and obtain the feature vectors and class labels for each data point
+			// everything is stored contiguously and bytewise (no buffers, newlines, etc)
+			double* feature_vector = malloc(sizeof(double) * FEATURE_VECTOR_LENGTH);
+			char class_label = '\0';
+			fread(feature_vector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
+			fread(&class_label, sizeof(char), 1, fp);
+			
+			DataPoint* dp = NewDataPoint(class_label, feature_vector);
+			AddTrainingData(ts, dp);
 		}
 		fclose(fp);
 	}
-	
-
 	return ts;
 }
 
-void AddTrainingData(TrainingSet* ts, TrainingData* td) {
-	if (ts->Size == ts->Allocated) {
-		ReallocateTrainingSet(ts);
+
+// assumes all DataPoint objects stored in ds are DYNAMICALLY allocated
+// and thus stored on the heap
+void FreeDataSet(DataSet* ds) {
+	int i;
+	for (i = 0; i < ds->Size; i++) {			// free each individual DataPoint object
+		free(ds->Data[i]->FeatureVector);
+		free(ds->Data[i]);
 	}
-	ts->Data[ts->Size] = *td;
+	free(ds);		// free the entire DataSet at the very end
+}
+
+// allocates and returns an empty DataSet object
+DataSet* EmptyDataSet() {
+	DataSet* ds = malloc(sizeof(DataSet));
+	ds->Allocated = 0;
+	ds->Size = 0;
+
+	return ds;
+}
+
+// allocates and returns a DataPoint object
+// feature_vector: array of features that must exist on the heap before passed
+DataPoint* NewDataPoint(char class_label, double* feature_vector) {
+	DataPoint* td = malloc(sizeof(DataPoint));
+	td->ClassLabel = class_label;
+	td->FeatureVector = feature_vector;
+	return td;
+}
+
+void AddTrainingData(DataSet* ts, DataPoint* td) {
+	if (ts->Size == ts->Allocated) {		// if size has reached allocated limit, reallocate
+		if (ts->Allocated == 0) {
+			ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
+			ts->Data = malloc(sizeof(DataPoint*) * TRAINING_SET_ALLOCATE_BLOCK);
+		}
+
+		else {
+			ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
+			ts->Data = realloc(ts->Data, ts->Allocated * sizeof(DataPoint*));
+		}
+	}
+	ts->Data[ts->Size] = td;
 	ts->Size++;
 }
 
 // trains the training set referenced by ts using the input Binary Document and class labels
-void TrainTrainingSet(TrainingSet* ts, BinaryDocument* bd, char* class_labels, int num_labels) {
+void TrainTrainingSet(DataSet* ts, BinaryDocument* bd, char* class_labels, int num_labels) {
 	SegmentText(ts, bd, class_labels, num_labels);
 }
 
 // writes training set to a text file
-void WriteTrainingSet(TrainingSet* ts) {
+void WriteTrainingSet(DataSet* ts) {
 	FILE* fp;
 	fp = fopen(TRAINING_SET_FILE, "wb");
 	int i, j;
 	for (i = 0; i < ts->Size; i++) {
-		fwrite(ts->Data[i].FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
-		fwrite(&(ts->Data[i].ClassLabel), sizeof(char), 1, fp);
+		fwrite(ts->Data[i]->FeatureVector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
+		fwrite(&(ts->Data[i]->ClassLabel), sizeof(char), 1, fp);
 	}
 	fclose(fp);
 }
 
-// increments the training data array by increment defined by TRAINING_SET_ALLOCATE_BLOCK
-void ReallocateTrainingSet(TrainingSet* ts) {
-	if (ts->Allocated == 0) {
-		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
-		ts->Data = malloc(sizeof(TrainingData) * TRAINING_SET_ALLOCATE_BLOCK);
-	}
-
-	else {
-		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
-		ts->Data = (TrainingData*)realloc(ts->Data, ts->Allocated * sizeof(TrainingData));
-	}
+/******************************************************************************
+*	classifies data point using the K-nearest neighbors algorithm and 
+*	returns the label of the resulting class
+*
+*	ts: pointer to the training set to classify from
+*	dp: pointer to data point object
+*	k: parameter for K-nearest neighbors classification
+*******************************************************************************/
+char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
+	
 }
 
 /*	takes in a GRAYSCALE (8 bpp) image of a character and computes the feature vector

@@ -21,12 +21,12 @@ static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height o
 *	Segments characters from the line specified by parameters min_y and max_y and performs feature extraction on
 *	them
 */
-void CharSegment(	TrainingSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y, 
-					int max_y, char* labels, int* char_index, int max_labels) {
+DataSet* CharSegment(	DataSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y,
+							int max_y, char* labels, int* char_index, int max_labels) {
+	DataSet* return_set = EmptyDataSet();		// allocate return variable
+
 	int width = bd->width;
-
 	int line_height = max_y - min_y + 1;
-
 	if (line_height == 0) return;
 
 	int char_min_x = 0;		// pixel left of beginning of run of text
@@ -132,21 +132,19 @@ void CharSegment(	TrainingSet* ts, BinaryDocument* bd, unsigned char* mask, int*
 					isTrainingData = 0;
 				}
 
-				// create a training data object
+				// create a training data object if the current character is part of the training set
 				if (isTrainingData) {
 					char training_label = labels[*char_index];
-					TrainingData training_data;
-					training_data.ClassLabel = training_label;
-					training_data.FeatureVector = feature_vector;
-					AddTrainingData(ts, &training_data);
+					DataPoint* training_data = NewDataPoint(training_label, feature_vector);
+					AddTrainingData(ts, training_data);
 				}
 
-				else {			// do some classification (k-nearest neighbors) with the feature vector to get the actual character
-					// NearestNeighbors();
-					free(feature_vector);
+				// otherwise, the data object is part of the test set 
+				// store the feature vector in a dataset to perform KNN classification on later
+				else {		
+					DataPoint* dp = NewDataPoint((char)0, feature_vector);	// use null char to signify points that have not been classified yet
+					AddTrainingData(return_set, dp);
 				}
-
-				//free feature vector
 			}
 		}
 	}
@@ -155,7 +153,7 @@ void CharSegment(	TrainingSet* ts, BinaryDocument* bd, unsigned char* mask, int*
 /*
 *	Parses the entire document image and attempts to segment individual characters
 */
-void SegmentText(TrainingSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
+void SegmentText(DataSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
 	int char_index = 0;
 
 	int height = bd->height;
