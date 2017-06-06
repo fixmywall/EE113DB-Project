@@ -36,6 +36,8 @@ void AddTrainingData(DataSet* ts, DataPoint* td);
 
 double* GetFeatureVector(char* char_start, int height, int width, int doc_width);		// returns the feature vector for a character
 
+char* ClassifyTestSet(DataSet* train, DataSet* test, int k);
+
 char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k);
 
 float BilinearInterpolation(float q11, float q12, float q21, float q22, float x1, float x2, float y1, float y2, float x, float y);

@@ -32,20 +32,14 @@ void ResizeCharacterTest() {
 }
 
 
-void TrainingTest() {
-	char* input_file = "data/ocr_training_set.bmp";
-
-
+void TrainFromFile(DataSet* ts, char* input_file) {
 	//convert to binary image
-	BinaryDocument binary_doc;
-	binary_doc = Binarize(input_file);
+	BinaryDocument binary_doc = Binarize(input_file);
 	int height = binary_doc.height;
 	int width = binary_doc.width;
 
 	//deskew the document
 	Deskew(&binary_doc);
-
-	unsigned char* mask;
 
 	char class_labels[CHAR_COUNT] = { 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
 										'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a',
@@ -72,11 +66,39 @@ void TrainingTest() {
 	}
 	fclose(fp2);
 
-	WriteTrainingSet(ts);
-	FreeDataSet(ts);
-
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);
+}
+
+void TrainingTest() {
+	DataSet* ts = EmptyDataSet();
+	TrainFromFile(ts, "data/training_set_tahoma.bmp");
+	TrainFromFile(ts, "data/training_set_arial.bmp");
+	TrainFromFile(ts, "data/training_set_roboto.bmp");
+
+	WriteTrainingSet(ts);
+	FreeDataSet(ts);
+}
+
+void OCRTest(char* input_file, int k) {
+	//convert to binary image
+	BinaryDocument binary_doc = Binarize(input_file);
+	int height = binary_doc.height;
+	int width = binary_doc.width;
+
+	//deskew the document
+	Deskew(&binary_doc);
+
+	DataSet* training_set = InitTrainingSet();
+	DataSet* test_set = SegmentText(training_set, &binary_doc, NULL, 0);
+
+	char* output = ClassifyTestSet(training_set, test_set, k);
+
+	// free allocated memory
+	BinaryDocument_Free(&binary_doc);
+	FreeDataSet(training_set);
+	FreeDataSet(test_set);
+	free(output);
 }
 
 //*****************************************************************************
@@ -86,6 +108,7 @@ void TrainingTest() {
 //*****************************************************************************
 int main(void)
 {
-	TrainingTest();
+	OCRTest("data/test_set_1.bmp", 3);
+	//TrainingTest();
 	return 0;
 }

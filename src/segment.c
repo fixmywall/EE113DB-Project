@@ -21,9 +21,8 @@ static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height o
 *	Segments characters from the line specified by parameters min_y and max_y and performs feature extraction on
 *	them
 */
-DataSet* CharSegment(	DataSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y,
-							int max_y, char* labels, int* char_index, int max_labels) {
-	DataSet* return_set = EmptyDataSet();		// allocate return variable
+void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y,
+					int max_y, char* labels, int* char_index, int max_labels) {
 
 	int width = bd->width;
 	int line_height = max_y - min_y + 1;
@@ -112,38 +111,40 @@ DataSet* CharSegment(	DataSet* ts, BinaryDocument* bd, unsigned char* mask, int*
 
 				int* feature_vector;
 				
-				// take the feature vector for a character
-				if (!is_small_punct) {		// for regular characters and big punctuation
-					feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
-					(*char_index)++;
-
-				}
-				else {
-					// extract feature for small punctuation
+				
+				if (is_small_punct) {		
 					feature_vector = (double*)malloc(1 * sizeof(double));
 				}
 
-				// figure out if point is training data
-				int isTrainingData = 0;
-				if (char_index >= max_labels) {
-					isTrainingData = 1;
-				}
-				else {
-					isTrainingData = 0;
-				}
+				// take the feature vector for a character
+				else {		// for regular characters and big punctuation
+							// extract feature for small punctuation
+					feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
+					
+					// figure out if point is training data
+					int isTrainingData = 0;
+					if (*char_index < max_labels) {
+						isTrainingData = 1;
+					}
+					else {
+						isTrainingData = 0;
+					}
 
-				// create a training data object if the current character is part of the training set
-				if (isTrainingData) {
-					char training_label = labels[*char_index];
-					DataPoint* training_data = NewDataPoint(training_label, feature_vector);
-					AddTrainingData(ts, training_data);
-				}
+					// create a training data object if the current character is part of the training set
+					if (isTrainingData) {
+						char training_label = labels[*char_index];
+						DataPoint* training_data = NewDataPoint(training_label, feature_vector);
+						AddTrainingData(ts, training_data);
+					}
 
-				// otherwise, the data object is part of the test set 
-				// store the feature vector in a dataset to perform KNN classification on later
-				else {		
-					DataPoint* dp = NewDataPoint((char)0, feature_vector);	// use null char to signify points that have not been classified yet
-					AddTrainingData(return_set, dp);
+					// otherwise, the data object is part of the test set 
+					// store the feature vector in a dataset to perform KNN classification on later
+					else {
+						DataPoint* dp = NewDataPoint((char)0, feature_vector);	// use null char to signify points that have not been classified yet
+						AddTrainingData(test_set, dp);
+					}
+
+					(*char_index)++;
 				}
 			}
 		}
@@ -153,7 +154,8 @@ DataSet* CharSegment(	DataSet* ts, BinaryDocument* bd, unsigned char* mask, int*
 /*
 *	Parses the entire document image and attempts to segment individual characters
 */
-void SegmentText(DataSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
+DataSet* SegmentText(DataSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
+	DataSet* output_set = EmptyDataSet();
 	int char_index = 0;
 
 	int height = bd->height;
@@ -214,10 +216,14 @@ void SegmentText(DataSet* ts, BinaryDocument* bd, char* symbols, int num_symbols
 						}
 					}
 				}
-				CharSegment(ts, bd, mask, vpp, text_run_start, text_run_end, symbols, &char_index, num_symbols);		// segment individual characters
+				CharSegment(	output_set, ts, bd, mask, vpp, text_run_start, 
+								text_run_end, symbols, &char_index, num_symbols);		// segment individual characters
+
 			}
 		}
 	}
 	bd->boundaries = mask;
+
+	return output_set;
 }
 

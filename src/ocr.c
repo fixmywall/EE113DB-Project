@@ -96,6 +96,56 @@ void WriteTrainingSet(DataSet* ts) {
 	fclose(fp);
 }
 
+
+/**********************************************************************************
+*	Classifies a test set using data from training set "train" using K-nearest neighbors
+*	The test set will contain points with both null and non-null labels.
+*	This algorithm will only use the points with null labels for Classification. The rest 
+*	of the points will have their class label automatically output
+*
+*	train: training set
+*	test: test set
+**********************************************************************************/
+char* ClassifyTestSet(DataSet* train, DataSet* test, int k) {
+	int test_size = test->Size;
+	char* output = malloc(sizeof(char) * test_size);
+
+	int i;
+	for (i = 0; i < test_size; i++) {
+		DataPoint* test_point = test->Data[i];
+		char output_char;
+		if (test_point->ClassLabel == '\0') {		// only classify test poinnts with null labels
+			output_char = ClassifyDataPoint(train, test_point, k);
+		}
+		
+		else {
+			output_char = test_point->ClassLabel;
+		}
+		output[i] = output_char;
+	}
+	return output;
+}
+
+
+/*****************************************************************************
+*	Neighbor struct and accompanying functions are only used for the purposes
+*	of function ClassifyDataPoint()
+*****************************************************************************/
+typedef struct {
+	double DistSquared;
+	char ClassLabel;
+} Neighbor;			// struct containing a neighbor's distance squared and class label
+
+int CompareNeighbor(Neighbor* a, Neighbor* b) {			// for qsort (increasing order)
+	if (a->DistSquared < b->DistSquared) {
+		return -1;
+	}
+	else if (a->DistSquared > b->DistSquared) {
+		return 1;
+	}
+	else return 0;
+}
+
 /******************************************************************************
 *	classifies data point using the K-nearest neighbors algorithm and 
 *	returns the label of the resulting class
@@ -105,7 +155,50 @@ void WriteTrainingSet(DataSet* ts) {
 *	k: parameter for K-nearest neighbors classification
 *******************************************************************************/
 char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
+	if (ts->Size == 0 || k <= 0) return;
+
+	int i;
+	Neighbor* neighbor_vector;			// vector of neighbor structs for ALL datapoints in ts
+	neighbor_vector = malloc(sizeof(Neighbor) * ts->Size);
+	for (i = 0; i < ts->Size; i++) {	// iterate through all datapoints in training set
+		DataPoint* train_point = ts->Data[i];
+
+		double dist_squared = 0;
+		int j;
+		for (j = 0; j < FEATURE_VECTOR_LENGTH; j++) {
+			dist_squared += pow(dp->FeatureVector[j] - train_point->FeatureVector[j], 2.0);
+		}
+		Neighbor neighbor;
+		neighbor.ClassLabel = train_point->ClassLabel;
+		neighbor.DistSquared = dist_squared;
+		neighbor_vector[i] = neighbor;
+	}
+
+	// sort neighbor vector in order of increasing distance squared
+	qsort(neighbor_vector, ts->Size, sizeof(Neighbor), CompareNeighbor);
+
+	// find the most frequent class of the K-nearest ones
+	int votes[255];				// contains vote count for the class of the K-nearest neighbors
+	for (i = 0; i < 255; i++) {
+		votes[i] = 0;
+	}
+	for (i = 0; i < k; i++) {
+		char class_label = neighbor_vector[i].ClassLabel;
+		votes[(int)class_label]++;
+	}
+	int max = votes[0];
+	char max_char = neighbor_vector[0].ClassLabel;		// most frequent class in K-nearest neighbors
+	for (i = 0; i < k; i++) {		// get character with the most frequent votes
+		char class_label = neighbor_vector[i].ClassLabel;
+		int votes_i = votes[(int)class_label];
+		if (votes_i > max) {
+			max = votes_i;
+			max_char = class_label;
+		}
+	}
 	
+	free(neighbor_vector);
+	return max_char;
 }
 
 /*	takes in a GRAYSCALE (8 bpp) image of a character and computes the feature vector
