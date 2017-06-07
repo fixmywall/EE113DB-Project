@@ -6,6 +6,7 @@
 #include "segment.h"
 #include "preprocess.h"
 #include "ocr.h"
+#include "system.h"
 
 #define PI 3.1415927
 
@@ -27,7 +28,7 @@ void ResizeCharacterTest() {
 	}
 	fclose(fp);
 
-	free(resized_character);
+	FreeMemory(resized_character);
 	BinaryDocument_Free(&bd);
 }
 
@@ -41,30 +42,26 @@ void TrainFromFile(DataSet* ts, char* input_file) {
 	//deskew the document
 	Deskew(&binary_doc);
 
-	char class_labels[CHAR_COUNT] = { 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-										'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a',
-										'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', '1',
-										'2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B', 'C', 'D',
-										'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N' };
+	char* class_labels = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 	TrainTrainingSet(ts, &binary_doc, class_labels, CHAR_COUNT);
 
-	//write output to file
-	FILE* fp;
-	fp = fopen("data/output.txt", "w");
-	int i;
-	for (i = 0; i < height*width; i++) {
-		fprintf(fp, "%d\n", (int)binary_doc.image[i]);
-	}
-	fclose(fp);
-	printf("Finished writing processed image.\n");
+	////write output to file
+	//FILE* fp;
+	//fp = fopen("data/output.txt", "w");
+	//int i;
+	//for (i = 0; i < height*width; i++) {
+	//	fprintf(fp, "%d\n", (int)binary_doc.image[i]);
+	//}
+	//fclose(fp);
+	//printf("Finished writing processed image.\n");
 
-	FILE* fp2;
-	fp2 = fopen("data/mask_output.txt", "w");
-	for (i = 0; i < height*width; i++) {
-		fprintf(fp2, "%d\n", (int)binary_doc.boundaries[i]);
-	}
-	fclose(fp2);
+	//FILE* fp2;
+	//fp2 = fopen("data/mask_output.txt", "w");
+	//for (i = 0; i < height*width; i++) {
+	//	fprintf(fp2, "%d\n", (int)binary_doc.boundaries[i]);
+	//}
+	//fclose(fp2);
 
 	//free allocated memory
 	BinaryDocument_Free(&binary_doc);
@@ -94,11 +91,20 @@ void OCRTest(char* input_file, int k) {
 
 	char* output = ClassifyTestSet(training_set, test_set, k);
 
+	//write output to file
+	FILE* fp;
+	fp = fopen("data/ocr_output.txt", "w");
+	int i;
+	for (i = 0; i < test_set->Size; i++) {
+		fprintf(fp, "%c", output[i]);
+	}
+	fclose(fp);
+
 	// free allocated memory
 	BinaryDocument_Free(&binary_doc);
 	FreeDataSet(training_set);
 	FreeDataSet(test_set);
-	free(output);
+	FreeMemory(output);
 }
 
 //*****************************************************************************
@@ -108,6 +114,11 @@ void OCRTest(char* input_file, int k) {
 //*****************************************************************************
 int main(void)
 {
+#if LCDK == 1
+	msc_inti();
+	mem_init();
+#endif
+	
 	OCRTest("data/test_set_1.bmp", 3);
 	//TrainingTest();
 	return 0;

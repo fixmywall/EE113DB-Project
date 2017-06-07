@@ -113,7 +113,7 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 				
 				
 				if (is_small_punct) {		
-					feature_vector = (double*)malloc(1 * sizeof(double));
+					feature_vector = (double*)MemAllocate(1 * sizeof(double));
 				}
 
 				// take the feature vector for a character
@@ -154,20 +154,20 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 /*
 *	Parses the entire document image and attempts to segment individual characters
 */
-DataSet* SegmentText(DataSet* ts, BinaryDocument* bd, char* symbols, int num_symbols) {
+DataSet* SegmentText(DataSet* training, BinaryDocument* bd, char* symbols, int num_symbols) {
 	DataSet* output_set = EmptyDataSet();
 	int char_index = 0;
 
 	int height = bd->height;
 	int width = bd->width;
-	int* hpp = (int*)malloc(sizeof(int)*height);		// horizontal projection profile for the entire image
-	int* vpp = (int*)malloc(sizeof(int)*width);			// vertical projection profile for a single line of text
+	int* hpp = (int*)MemAllocate(sizeof(int)*height);		// horizontal projection profile for the entire image
+	int* vpp = (int*)MemAllocate(sizeof(int)*width);			// vertical projection profile for a single line of text
 	int i;
 	for (i = 0; i < height; i++) hpp[i] = 0;
 	for (i = 0; i < width; i++) vpp[i] = 0;
 
 	//allocate space for mask image
-	unsigned char* mask = (unsigned char*)malloc(sizeof(unsigned char) * height * width);
+	unsigned char* mask = (unsigned char*)MemAllocate(sizeof(unsigned char) * height * width);
 	for (i = 0; i < height*width; i++) {
 		mask[i] = 0;
 	}
@@ -216,8 +216,11 @@ DataSet* SegmentText(DataSet* ts, BinaryDocument* bd, char* symbols, int num_sym
 						}
 					}
 				}
-				CharSegment(	output_set, ts, bd, mask, vpp, text_run_start, 
+				CharSegment(	output_set, training, bd, mask, vpp, text_run_start, 
 								text_run_end, symbols, &char_index, num_symbols);		// segment individual characters
+				// insert newline character 
+				DataPoint* new_line = NewDataPoint('\n', NULL);
+				AddTrainingData(output_set, new_line);
 
 			}
 		}

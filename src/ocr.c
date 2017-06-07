@@ -4,13 +4,42 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "preprocess.h"
+#include "system.h"
 
 static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image for feature extraction
 static const int CHAR_ZONE_COUNT = 16;
 static const char* TRAINING_SET_FILE = "data/training_set.bin";
 
+/******************************************************
+*	PRIVATE functions
+*	reallocates new block for DataSet's Data member
+*	Data is an array of DataPoint pointers
+*******************************************************/
+void ReallocateDataSet(DataSet* ts) {
+	if (ts->Allocated == 0) {
+		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
+		ts->Data = MemAllocate(sizeof(DataPoint*) * TRAINING_SET_ALLOCATE_BLOCK);
+	}
+
+	else {
+		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
+
+#if LCDK == 0
+		ts->Data = realloc(ts->Data, ts->Allocated * sizeof(DataPoint*));
+#else	// LCDK has no support for realloc
+		DataPoint** new_block = MemAllocate(sizeof(DataPoint*));
+		int i;
+		for (i = 0; i < ts->Allocated; i++) {
+			new_block[i] = ts->Data[i];
+		}
+		FreeMemory(ts->Data);
+		ts->Data = new_block;
+#endif
+	}
+}
+
 DataSet* InitTrainingSet() {
-	DataSet* ts = malloc(sizeof(DataSet));
+	DataSet* ts = MemAllocate(sizeof(DataSet));
 	ts->Allocated = 0;
 	ts->Size = 0;
 
@@ -20,7 +49,7 @@ DataSet* InitTrainingSet() {
 		while (!feof(fp)) {		// parse until end of file
 			// parse the file and obtain the feature vectors and class labels for each data point
 			// everything is stored contiguously and bytewise (no buffers, newlines, etc)
-			double* feature_vector = malloc(sizeof(double) * FEATURE_VECTOR_LENGTH);
+			double* feature_vector = MemAllocate(sizeof(double) * FEATURE_VECTOR_LENGTH);
 			char class_label = '\0';
 			fread(feature_vector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
 			fread(&class_label, sizeof(char), 1, fp);
@@ -37,17 +66,19 @@ DataSet* InitTrainingSet() {
 // assumes all DataPoint objects stored in ds are DYNAMICALLY allocated
 // and thus stored on the heap
 void FreeDataSet(DataSet* ds) {
+	if (!ds) return;
+
 	int i;
 	for (i = 0; i < ds->Size; i++) {			// free each individual DataPoint object
-		free(ds->Data[i]->FeatureVector);
-		free(ds->Data[i]);
+		if (ds->Data[i]->FeatureVector)		free(ds->Data[i]->FeatureVector);
+		if (ds->Data[i])					free(ds->Data[i]);
 	}
 	free(ds);		// free the entire DataSet at the very end
 }
 
 // allocates and returns an empty DataSet object
 DataSet* EmptyDataSet() {
-	DataSet* ds = malloc(sizeof(DataSet));
+	DataSet* ds = MemAllocate(sizeof(DataSet));
 	ds->Allocated = 0;
 	ds->Size = 0;
 
@@ -57,7 +88,7 @@ DataSet* EmptyDataSet() {
 // allocates and returns a DataPoint object
 // feature_vector: array of features that must exist on the heap before passed
 DataPoint* NewDataPoint(char class_label, double* feature_vector) {
-	DataPoint* td = malloc(sizeof(DataPoint));
+	DataPoint* td = MemAllocate(sizeof(DataPoint));
 	td->ClassLabel = class_label;
 	td->FeatureVector = feature_vector;
 	return td;
@@ -65,19 +96,13 @@ DataPoint* NewDataPoint(char class_label, double* feature_vector) {
 
 void AddTrainingData(DataSet* ts, DataPoint* td) {
 	if (ts->Size == ts->Allocated) {		// if size has reached allocated limit, reallocate
-		if (ts->Allocated == 0) {
-			ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
-			ts->Data = malloc(sizeof(DataPoint*) * TRAINING_SET_ALLOCATE_BLOCK);
-		}
-
-		else {
-			ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
-			ts->Data = realloc(ts->Data, ts->Allocated * sizeof(DataPoint*));
-		}
+		ReallocateDataSet(ts);
 	}
 	ts->Data[ts->Size] = td;
 	ts->Size++;
 }
+
+
 
 // trains the training set referenced by ts using the input Binary Document and class labels
 void TrainTrainingSet(DataSet* ts, BinaryDocument* bd, char* class_labels, int num_labels) {
@@ -108,7 +133,7 @@ void WriteTrainingSet(DataSet* ts) {
 **********************************************************************************/
 char* ClassifyTestSet(DataSet* train, DataSet* test, int k) {
 	int test_size = test->Size;
-	char* output = malloc(sizeof(char) * test_size);
+	char* output = MemAllocate(sizeof(char) * test_size);
 
 	int i;
 	for (i = 0; i < test_size; i++) {
@@ -155,11 +180,11 @@ int CompareNeighbor(Neighbor* a, Neighbor* b) {			// for qsort (increasing order
 *	k: parameter for K-nearest neighbors classification
 *******************************************************************************/
 char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
-	if (ts->Size == 0 || k <= 0) return;
+	if (!ts || ! dp || ts->Size == 0 || k <= 0) return;
 
 	int i;
 	Neighbor* neighbor_vector;			// vector of neighbor structs for ALL datapoints in ts
-	neighbor_vector = malloc(sizeof(Neighbor) * ts->Size);
+	neighbor_vector = MemAllocate(sizeof(Neighbor) * ts->Size);
 	for (i = 0; i < ts->Size; i++) {	// iterate through all datapoints in training set
 		DataPoint* train_point = ts->Data[i];
 
@@ -208,8 +233,8 @@ char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
 double* GetFeatureVector(char* char_pixels, int height, int width, int doc_width) {
 	if (height == 0 || width == 0) return;
 	unsigned char* resized_image = ResizeCharacter(char_pixels, height, width, RESIZED_CHAR_DIM, RESIZED_CHAR_DIM, doc_width);
-	WriteToFile("data/resized_char.txt", resized_image, 40, 40);
-	double* feature_vector = (double*)malloc(sizeof(double) * CHAR_ZONE_COUNT);
+	//WriteToFile("data/resized_char.txt", resized_image, 40, 40);
+	double* feature_vector = (double*)MemAllocate(sizeof(double) * CHAR_ZONE_COUNT);
 	int i;
 	for (i = 0; i < CHAR_ZONE_COUNT; i++) {
 		feature_vector[i] = 0.0;
@@ -262,7 +287,7 @@ float BilinearInterpolation(float q11, float q12, float q21, float q22, float x1
 unsigned char* ResizeCharacter(unsigned char* image, int height, int width, int out_height, int out_width, int doc_width) {
 	if (out_height == 0 || out_width == 0) return;
 
-	unsigned char* output_image = (unsigned char*)malloc(sizeof(unsigned char) * out_height * out_width);
+	unsigned char* output_image = MemAllocate(sizeof(unsigned char) * out_height * out_width);
 
 	int x, y;
 	for (y = 0; y < out_height; y++) {

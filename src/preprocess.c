@@ -1,8 +1,11 @@
 #include "preprocess.h"
 #include "qdbmp.h"
+#include "system.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+
 
 #define THETA_DELTA_DEG 0.5		//accuracy of the deskew algorithm
 #define MAX_R_BINS 2000
@@ -11,31 +14,52 @@
 static const double PI = 3.1415927;
 
 // input_bmp: pointer to a BMP struct as defined by qdbmp.h
-UCHAR* ConvertImageToGrayscale(BMP* input_bmp, int height, int width) {
+UCHAR* ConvertImageToGrayscale(UCHAR* input_bmp, int height, int width) {
 	//allocate memory for output grayscale bitmap (1 byte per pixel)
-	UCHAR* bitmap_grayscale = (UCHAR*)malloc(sizeof(UCHAR) * height * width);
+	UCHAR* bitmap_grayscale = MemAllocate(sizeof(UCHAR) * height * width);
 
 	//convert RGB bmp image to grayscale using the luminosity 
 	int x, y;
-	for (x = 0; x < width; x++) {
-		for (y = height - 1; y >= 0; y--) {
-			UCHAR pixel_value = 0;
-			UCHAR r, g, b;
-			BMP_GetPixelRGB(input_bmp, x, y, &r, &g, &b);
+	//for (x = 0; x < width; x++) {
+	//	for (y = 0; y < height; y++) {
+	//		UCHAR pixel_value = 0;
+	//		UCHAR r, g, b;
+	//		BMP_GetPixelRGB(input_bmp, x, y, &r, &g, &b);
 
-			if (BMP_GetBitsPerPixel(input_bmp) == 8) {
-				pixel_value = b;
-			}
-			else {
-				pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
-			}
+	//		if (BMP_GetBitsPerPixel(input_bmp) == 8) {
+	//			pixel_value = b;
+	//		}
+	//		else {
+	//			pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
+	//		}
 
-			bitmap_grayscale[x + (height - 1 - y) * width] = pixel_value;
+	//		bitmap_grayscale[x + y * width] = pixel_value;
+	//	}
+	//}
+
+
+	// using using LCDK's usb_imread, image starts in bottom left. we want to store starting from the top left
+	int bytes_per_row = 4.0 * ceil(width * 3.0 / 4.0);
+	for (y = 0; y < height; y++)
+	{
+		for (x = 0; x < width; x++) {
+#if LCDK == 0
+			int col_index = (x * 3 + y * bytes_per_row);
+#else
+			int col_index = (x + y * width) * 3;
+#endif
+			// info stored in BGR order
+			UCHAR r = input_bmp[col_index + 2];
+			UCHAR g = input_bmp[col_index + 1];
+			UCHAR b = input_bmp[col_index];
+			UCHAR pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
+
+			bitmap_grayscale[x + (height - y - 1) * width] = pixel_value;
 		}
-	}
+	}		
 
 	//free input color image
-	BMP_Free(input_bmp);
+	FreeMemory(input_bmp);
 
 	return bitmap_grayscale;
 }
@@ -49,21 +73,29 @@ void BinaryDocument_Free(BinaryDocument* doc) {
 // Takes in a grayscale image and binarizes it (makes it black and white)
 // Uses Otsu's method, a global thresholding algorithm
 BinaryDocument Binarize(unsigned char* input_file) {
+	int height, width;
+	unsigned char* image;
+#if LCDK == 0
 	BMP* bmp;
 	UCHAR* bmp_grayscale;
 	bmp = BMP_ReadFile(input_file);
-
-	int height, width;
 	if (BMP_GetError() != BMP_OK) { /* If an error has occurred, notify and exit */
 		width = 0;
 		height = 0;
 	}
+
 	else {
 		width = BMP_GetWidth(bmp);
 		height = BMP_GetHeight(bmp);
 	}
-	unsigned char* image = ConvertImageToGrayscale(bmp, height, width);
 
+	image = ConvertImageToGrayscale(BMP_GetData(bmp), height, width);
+
+#else
+	image = usb_umread(input_file);
+	height = InfoHeader.Height;
+	width = InfoHeader.Width;
+#endif
 	int total_pixels = height * width;		// total number of pixels in the grayscale image
 	int background_color;					// 0 for black, 1 for white background
 	int black_pixel_count = 0;				// count of black pixels in imgae
@@ -113,7 +145,7 @@ BinaryDocument Binarize(unsigned char* input_file) {
 	}
 
 	//apply global threshold to newly allocated output image
-	unsigned char* output_image = (unsigned char*)malloc(sizeof(unsigned char) * total_pixels);
+	unsigned char* output_image = MemAllocate(sizeof(unsigned char) * total_pixels);
 	for (i = 0; i<height*width; i++) {
 		int intens = image[i];
 		if (intens >= optimal_threshold) {
@@ -140,8 +172,8 @@ BinaryDocument Binarize(unsigned char* input_file) {
 	output_doc.width = width;
 	output_doc.image = output_image;
 
-	//free the input image
-	free(image);
+	//free the grayscale image
+	FreeMemory(image);
 
 	return output_doc;
 }
@@ -176,7 +208,7 @@ void Rotate(BinaryDocument* bd, double angle_deg) {
 	int og_x, og_y;						// indices to the original unrotated image
 
 										//allocate memory for rotated image
-	unsigned char* output_image = malloc(sizeof(unsigned char) * total_pixels);
+	unsigned char* output_image = MemAllocate(sizeof(unsigned char) * total_pixels);
 
 	//fill output image with the background color
 	for (i = 0; i < total_pixels; i++) {
