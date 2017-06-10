@@ -5,6 +5,7 @@
 #include "segment.h"
 #include "ocr.h"
 #include "preprocess.h"
+#include "system.h"
 
 /*
 *	Returns an image with lines corresponding to the gaps between lines and characters
@@ -14,7 +15,10 @@
 static const double HOR_THRESHOLD = 0.003;			//horizontal slice considered a space if proportion of foreground pixels <= this
 static const double VERT_THRESHOLD = 0;
 static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height of the character to the line width is below this, classify as a punctuation symbol
+static const double SPACE_THRESHOLD = 0.6;			// if gap larger than this times avg char width, classify gap as a space
 
+static int total_char_width = 0;	// running sum of the width of the segmented characters
+static double avg_char_width = 0;	// running average of the width of the segmented characters
 /*
 *	min_y:	lowest row that contains text pixels
 *	max_y:	highest row that contains text pixels
@@ -23,13 +27,13 @@ static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height o
 */
 void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned char* mask, int* vpp, int min_y,
 					int max_y, char* labels, int* char_index, int max_labels) {
-
 	int width = bd->width;
 	int line_height = max_y - min_y + 1;
 	if (line_height == 0) return;
 
 	int char_min_x = 0;		// pixel left of beginning of run of text
 	int char_max_x = 0;		// end of run of text
+	int text_found = 0;		// set to 1 once first characcter in the line is found
 	int in_text_run = 0;
 	
 	int x, y;
@@ -39,9 +43,25 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 		// find beginning of a run of text
 		if (!in_text_run) {
 			if ( pct_text > VERT_THRESHOLD) {		// find text in histogram
+
 				// signal beginning of run
+				if (!text_found) {
+					text_found = 1;
+				}
+				else {	// try to see if space between this and previous character
+					int horiz_gap = x - char_max_x;
+					if (horiz_gap >= SPACE_THRESHOLD * avg_char_width) {
+						// create space character
+						DataPoint* space = NewDataPoint(' ', NULL);
+						AddTrainingData(test_set, space);
+					}
+				}
+
 				in_text_run = 1;
-				char_min_x = x - 1;			
+				char_min_x = x - 1;		
+
+				// if the previous char_max_x is near to the average character width, classify as a space
+
 				if (char_min_x < 0) char_min_x = 0;	// boundary check
 			}
 		}
@@ -57,7 +77,6 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 				int char_max_y = max_y + 1;
 
 				// find the horizontal boundaries for the character (char_max_y and char_min_y
-				int pixel_row_found = 0;
 				int text_encountered = 0;		// flag that sets to 1 when a horz slice containing text is encountered
 				for (y = min_y - 1; y <= max_y + 1; y++) {
 					int fg_pixel_count = 0;			// pixel count of a horizontal slice of the text region
@@ -109,16 +128,16 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 					}
 				}
 
-				int* feature_vector;
+				double* feature_vector;
 				
-				
+				/*	If the segmented character is classified as punctuation (period, etc.)*/
 				if (is_small_punct) {		
 					feature_vector = (double*)MemAllocate(1 * sizeof(double));
 				}
 
-				// take the feature vector for a character
-				else {		// for regular characters and big punctuation
-							// extract feature for small punctuation
+				/*	If the segmented character is classified as a regular alphanumeric character	*/
+				else {	
+					// extract feature for small punctuation
 					feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
 					
 					// figure out if point is training data
@@ -130,10 +149,12 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 						isTrainingData = 0;
 					}
 
-					// create a training data object if the current character is part of the training set
+					// create and add a training data object if the current character is part of the training set
 					if (isTrainingData) {
 						char training_label = labels[*char_index];
 						DataPoint* training_data = NewDataPoint(training_label, feature_vector);
+						int size = ts->Size;
+						int allocated = ts->Allocated;
 						AddTrainingData(ts, training_data);
 					}
 
@@ -145,6 +166,10 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 					}
 
 					(*char_index)++;
+
+					// get running sum of widths
+					total_char_width += char_width;
+					avg_char_width = total_char_width / (*char_index);
 				}
 			}
 		}
@@ -155,7 +180,11 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 *	Parses the entire document image and attempts to segment individual characters
 */
 DataSet* SegmentText(DataSet* training, BinaryDocument* bd, char* symbols, int num_symbols) {
+	avg_char_width = 0;
+	total_char_width = 0;
+
 	DataSet* output_set = EmptyDataSet();
+	int foo = training->Size;
 	int char_index = 0;
 
 	int height = bd->height;

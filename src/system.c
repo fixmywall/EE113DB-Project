@@ -1,5 +1,9 @@
 #include "system.h"
 
+#if LCDK == 1
+#include "m_mem.h"
+#endif
+
 void* MemAllocate(size_t size) {
 #if LCDK == 0 
 	return malloc(size);
@@ -15,3 +19,4 @@ void FreeMemory(void* ptr) {
 	m_free(ptr);
 #endif
 }
+

@@ -13,10 +13,10 @@
 
 static const double PI = 3.1415927;
 
-// input_bmp: pointer to a BMP struct as defined by qdbmp.h
-UCHAR* ConvertImageToGrayscale(UCHAR* input_bmp, int height, int width) {
+// input_bmp: 24 BPP bitmap
+unsigned char* ConvertImageToGrayscale(unsigned char* input_bmp, int height, int width) {
 	//allocate memory for output grayscale bitmap (1 byte per pixel)
-	UCHAR* bitmap_grayscale = MemAllocate(sizeof(UCHAR) * height * width);
+	unsigned char* bitmap_grayscale = MemAllocate(sizeof(unsigned char) * height * width);
 
 	//convert RGB bmp image to grayscale using the luminosity 
 	int x, y;
@@ -49,10 +49,10 @@ UCHAR* ConvertImageToGrayscale(UCHAR* input_bmp, int height, int width) {
 			int col_index = (x + y * width) * 3;
 #endif
 			// info stored in BGR order
-			UCHAR r = input_bmp[col_index + 2];
-			UCHAR g = input_bmp[col_index + 1];
-			UCHAR b = input_bmp[col_index];
-			UCHAR pixel_value = (UCHAR)(0.21*r + 0.72*g + 0.07*b);
+			unsigned char r = input_bmp[col_index + 2];
+			unsigned char g = input_bmp[col_index + 1];
+			unsigned char b = input_bmp[col_index];
+			unsigned char pixel_value = (unsigned char)(0.21*r + 0.72*g + 0.07*b);
 
 			bitmap_grayscale[x + (height - y - 1) * width] = pixel_value;
 		}
@@ -64,45 +64,28 @@ UCHAR* ConvertImageToGrayscale(UCHAR* input_bmp, int height, int width) {
 	return bitmap_grayscale;
 }
 
+
+
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc) {
-	free(doc->image);
-	free(doc->boundaries);
+	FreeMemory(doc->image);
+	FreeMemory(doc->boundaries);
 }
 
 // Takes in a grayscale image and binarizes it (makes it black and white)
 // Uses Otsu's method, a global thresholding algorithm
-BinaryDocument Binarize(unsigned char* input_file) {
-	int height, width;
+BinaryDocument Binarize(unsigned char* bmp_rgb, int height, int width) {
 	unsigned char* image;
-#if LCDK == 0
-	BMP* bmp;
-	UCHAR* bmp_grayscale;
-	bmp = BMP_ReadFile(input_file);
-	if (BMP_GetError() != BMP_OK) { /* If an error has occurred, notify and exit */
-		width = 0;
-		height = 0;
-	}
+	int i;
+	image = ConvertImageToGrayscale(bmp_rgb, height, width);
 
-	else {
-		width = BMP_GetWidth(bmp);
-		height = BMP_GetHeight(bmp);
-	}
-
-	image = ConvertImageToGrayscale(BMP_GetData(bmp), height, width);
-
-#else
-	image = usb_umread(input_file);
-	height = InfoHeader.Height;
-	width = InfoHeader.Width;
-#endif
 	int total_pixels = height * width;		// total number of pixels in the grayscale image
 	int background_color;					// 0 for black, 1 for white background
 	int black_pixel_count = 0;				// count of black pixels in imgae
 	double total_intensity = 0; 			// sum of intensities of each pixel in the image
 	int histogram[256]; 					// histogram of the intensities of the pixels
 
-	int i;
+
 	for (i = 0; i < 256; i++) {				// set histogram array to zeros
 		histogram[i] = 0;
 	}
@@ -240,7 +223,7 @@ void Rotate(BinaryDocument* bd, double angle_deg) {
 	bd->image = output_image;
 
 	//deallocate original image
-	free(og_image);
+	FreeMemory(og_image);
 }
 
 void WriteToFile(char* file_path, unsigned char* image, int height, int width) {

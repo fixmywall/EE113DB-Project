@@ -3,7 +3,7 @@
 
 #define CHAR_COUNT 62
 #define FEATURE_VECTOR_LENGTH 16
-#define TRAINING_SET_ALLOCATE_BLOCK 100
+#define TRAINING_SET_ALLOCATE_BLOCK 200
 
 #include "preprocess.h"
 
@@ -17,8 +17,6 @@ typedef struct _DataSet {
 	int Size;
 	DataPoint** Data;		// array of TrainingData pointers
 } DataSet;
-
-char class_labels[CHAR_COUNT];
 
 DataSet* InitTrainingSet();
 
@@ -34,7 +32,7 @@ void WriteTrainingSet(DataSet* ts);
 
 void AddTrainingData(DataSet* ts, DataPoint* td);
 
-double* GetFeatureVector(char* char_start, int height, int width, int doc_width);		// returns the feature vector for a character
+double* GetFeatureVector(unsigned char* char_start, int height, int width, int doc_width);		// returns the feature vector for a character
 
 char* ClassifyTestSet(DataSet* train, DataSet* test, int k);
 

@@ -4,11 +4,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "preprocess.h"
+#include "segment.h"
 #include "system.h"
 
 static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image for feature extraction
 static const int CHAR_ZONE_COUNT = 16;
-static const char* TRAINING_SET_FILE = "data/training_set.bin";
+static const char* TRAINING_SET_FILE =
+#if LCDK == 0
+	"data/training_set.bin";
+#else
+	"C:/ti/OMAPL138_StarterWare_1_10_04_01/build/c674x/cgt_ccs/omapl138/lcdkOMAPL138/usb_host_msc/training_set.bin";
+#endif
 
 /******************************************************
 *	PRIVATE functions
@@ -16,6 +22,8 @@ static const char* TRAINING_SET_FILE = "data/training_set.bin";
 *	Data is an array of DataPoint pointers
 *******************************************************/
 void ReallocateDataSet(DataSet* ts) {
+	int size = ts->Size;
+	int allocated = ts->Allocated;
 	if (ts->Allocated == 0) {
 		ts->Allocated += TRAINING_SET_ALLOCATE_BLOCK;
 		ts->Data = MemAllocate(sizeof(DataPoint*) * TRAINING_SET_ALLOCATE_BLOCK);
@@ -27,7 +35,7 @@ void ReallocateDataSet(DataSet* ts) {
 #if LCDK == 0
 		ts->Data = realloc(ts->Data, ts->Allocated * sizeof(DataPoint*));
 #else	// LCDK has no support for realloc
-		DataPoint** new_block = MemAllocate(sizeof(DataPoint*));
+		DataPoint** new_block = MemAllocate(sizeof(DataPoint*) * ts->Allocated);
 		int i;
 		for (i = 0; i < ts->Allocated; i++) {
 			new_block[i] = ts->Data[i];
@@ -36,6 +44,7 @@ void ReallocateDataSet(DataSet* ts) {
 		ts->Data = new_block;
 #endif
 	}
+	allocated = ts->Allocated;
 }
 
 DataSet* InitTrainingSet() {
@@ -50,12 +59,13 @@ DataSet* InitTrainingSet() {
 			// parse the file and obtain the feature vectors and class labels for each data point
 			// everything is stored contiguously and bytewise (no buffers, newlines, etc)
 			double* feature_vector = MemAllocate(sizeof(double) * FEATURE_VECTOR_LENGTH);
-			char class_label = '\0';
 			fread(feature_vector, sizeof(double), FEATURE_VECTOR_LENGTH, fp);
-			fread(&class_label, sizeof(char), 1, fp);
+			char class_label = (char)fgetc(fp);
 			
 			DataPoint* dp = NewDataPoint(class_label, feature_vector);
-			AddTrainingData(ts, dp);
+
+			if (class_label != EOF)
+				AddTrainingData(ts, dp);
 		}
 		fclose(fp);
 	}
@@ -70,15 +80,15 @@ void FreeDataSet(DataSet* ds) {
 
 	int i;
 	for (i = 0; i < ds->Size; i++) {			// free each individual DataPoint object
-		if (ds->Data[i]->FeatureVector)		free(ds->Data[i]->FeatureVector);
-		if (ds->Data[i])					free(ds->Data[i]);
+		if (ds->Data[i]->FeatureVector)		FreeMemory(ds->Data[i]->FeatureVector);
+		if (ds->Data[i])					FreeMemory(ds->Data[i]);
 	}
-	free(ds);		// free the entire DataSet at the very end
+	FreeMemory(ds);		// free the entire DataSet at the very end
 }
 
 // allocates and returns an empty DataSet object
 DataSet* EmptyDataSet() {
-	DataSet* ds = MemAllocate(sizeof(DataSet));
+	DataSet* ds = (DataSet*)MemAllocate(sizeof(DataSet));
 	ds->Allocated = 0;
 	ds->Size = 0;
 
@@ -95,11 +105,13 @@ DataPoint* NewDataPoint(char class_label, double* feature_vector) {
 }
 
 void AddTrainingData(DataSet* ts, DataPoint* td) {
+	int size = ts->Size;
 	if (ts->Size == ts->Allocated) {		// if size has reached allocated limit, reallocate
 		ReallocateDataSet(ts);
 	}
 	ts->Data[ts->Size] = td;
 	ts->Size++;
+	size =ts->Size;
 }
 
 
@@ -180,7 +192,7 @@ int CompareNeighbor(Neighbor* a, Neighbor* b) {			// for qsort (increasing order
 *	k: parameter for K-nearest neighbors classification
 *******************************************************************************/
 char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
-	if (!ts || ! dp || ts->Size == 0 || k <= 0) return;
+	if (!ts || ! dp || ts->Size == 0 || k <= 0) return '\0';
 
 	int i;
 	Neighbor* neighbor_vector;			// vector of neighbor structs for ALL datapoints in ts
@@ -222,7 +234,7 @@ char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
 		}
 	}
 	
-	free(neighbor_vector);
+	FreeMemory(neighbor_vector);
 	return max_char;
 }
 
@@ -230,7 +242,7 @@ char ClassifyDataPoint(DataSet* ts, DataPoint* dp, int k) {
 *	feature vector is determined by dividing the resized image into 16 zones
 *	and computing the average pixel value in those zones
 */
-double* GetFeatureVector(char* char_pixels, int height, int width, int doc_width) {
+double* GetFeatureVector(unsigned char* char_pixels, int height, int width, int doc_width) {
 	if (height == 0 || width == 0) return;
 	unsigned char* resized_image = ResizeCharacter(char_pixels, height, width, RESIZED_CHAR_DIM, RESIZED_CHAR_DIM, doc_width);
 	//WriteToFile("data/resized_char.txt", resized_image, 40, 40);
@@ -258,7 +270,7 @@ double* GetFeatureVector(char* char_pixels, int height, int width, int doc_width
 	}
 
 	// free allocated memory
-	free(resized_image);
+	FreeMemory(resized_image);
 
 	return feature_vector;
 }
@@ -285,7 +297,7 @@ float BilinearInterpolation(float q11, float q12, float q21, float q22, float x1
 //resizes a character represented by a binary image to an arbitrary size
 //output size is given by parameters output_height and output_width
 unsigned char* ResizeCharacter(unsigned char* image, int height, int width, int out_height, int out_width, int doc_width) {
-	if (out_height == 0 || out_width == 0) return;
+	if (out_height == 0 || out_width == 0) return NULL;
 
 	unsigned char* output_image = MemAllocate(sizeof(unsigned char) * out_height * out_width);
 

@@ -254,7 +254,7 @@ BMP* BMP_ReadFile( const char* filename )
 	/* Allocate and read palette */
 	if ( bmp->Header.BitsPerPixel == 8 )
 	{
-		bmp->Palette = (UCHAR*) malloc( BMP_PALETTE_SIZE * sizeof( UCHAR ) );
+		bmp->Palette = (UCHAR*) MemAllocate( BMP_PALETTE_SIZE * sizeof( UCHAR ) );
 		if ( bmp->Palette == NULL )
 		{
 			BMP_LAST_ERROR_CODE = BMP_OUT_OF_MEMORY;

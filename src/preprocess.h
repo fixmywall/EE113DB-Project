@@ -19,13 +19,13 @@ typedef struct _BinaryDocument {
 	int width;				// width of the image in pixels
 } BinaryDocument;
 
-unsigned char* ConvertImageToGrayscale(BMP* input_bmp, int height, int width);
+unsigned char* ConvertImageToGrayscale(unsigned char* input_bmp, int height, int width);
 
 //frees the members of a BinaryDocument struct
 void BinaryDocument_Free(BinaryDocument* doc);
 
 // binarizes an an RGB image with file name as a parameter
-BinaryDocument Binarize(unsigned char* input_file);
+BinaryDocument Binarize(unsigned char* bmp_rgb, int height, int width);
 
 /************************************************************
 *	-BINARYROTATE-
