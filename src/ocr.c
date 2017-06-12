@@ -11,7 +11,7 @@ static const int RESIZED_CHAR_DIM = 40;		// dimension of resized character image
 static const int CHAR_ZONE_COUNT = 16;
 static const char* TRAINING_SET_FILE =
 #if LCDK == 0
-	"data/training_set.bin";
+	"data/training/training_set.bin";
 #else
 	"C:/ti/OMAPL138_StarterWare_1_10_04_01/build/c674x/cgt_ccs/omapl138/lcdkOMAPL138/usb_host_msc/training_set.bin";
 #endif
@@ -145,8 +145,8 @@ void WriteTrainingSet(DataSet* ts) {
 **********************************************************************************/
 char* ClassifyTestSet(DataSet* train, DataSet* test, int k) {
 	int test_size = test->Size;
-	char* output = MemAllocate(sizeof(char) * test_size);
-
+	char* output = MemAllocate(sizeof(char) * (test_size + 1));		// leave room for null terminator
+	output[test_size] = '\0';
 	int i;
 	for (i = 0; i < test_size; i++) {
 		DataPoint* test_point = test->Data[i];
@@ -159,6 +159,7 @@ char* ClassifyTestSet(DataSet* train, DataSet* test, int k) {
 			output_char = test_point->ClassLabel;
 		}
 		output[i] = output_char;
+		test_point->ClassLabel = output_char;
 	}
 	return output;
 }

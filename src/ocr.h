@@ -1,7 +1,7 @@
 #ifndef OCR_H
 #define OCR_H
 
-#define CHAR_COUNT 62
+#define CHAR_COUNT 64			// number of characters in each training set
 #define FEATURE_VECTOR_LENGTH 16
 #define TRAINING_SET_ALLOCATE_BLOCK 200
 

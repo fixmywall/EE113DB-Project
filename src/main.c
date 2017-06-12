@@ -40,6 +40,10 @@ unsigned char* ReadBMP(char* file_name, int* height, int* width) {
 #if LCDK == 0
 	BMP* bmp;
 	bmp = BMP_ReadFile(file_name);
+
+	if (BMP_GetError() != BMP_OK) {
+		return NULL;
+	}
 	*width = BMP_GetWidth(bmp);
 	*height = BMP_GetHeight(bmp);
 	out_image = BMP_GetData(bmp);
@@ -52,43 +56,71 @@ unsigned char* ReadBMP(char* file_name, int* height, int* width) {
 }
 
 
-void OCRTest(char* input_file, int k) {
-	//convert to binary image
+void OCRTest(int k, int write) {
+	unsigned char* image_rgb;
+	char* buffer;
+	int length;
 	int i;
 	int height, width;
-	unsigned char* image_rgb = ReadBMP(input_file, &height, &width);
+	char file_name[40];
+
+	do {
+		puts("Name of file to scan:");
+		char buffer[30];
+
+		if (fgets(buffer, 30, stdin) != NULL)
+		{
+			strtok(buffer, "\n");			// remove trailing newline
+			strcpy(file_name, "data/");
+			strcat(file_name, buffer);
+		}
+		image_rgb = ReadBMP(file_name, &height, &width);
+
+
+		if (image_rgb == NULL) {		// if error reading input image
+			puts("File not found");
+		}
+	} while (image_rgb == NULL);
+
+	//convert to binary image
 	BinaryDocument bd = Binarize(image_rgb, height, width);
+
 	//deskew the document
 	Deskew(&bd);
 
 	DataSet* training_set = InitTrainingSet();
 	DataSet* test_set = SegmentText(training_set, &bd, NULL, 0);
-
-	//write output to file
-	FILE* fp3;
-	fp3 = fopen("data/output.txt", "w");
-	for (i = 0; i < height*width; i++) {
-		fprintf(fp3, "%d\n", (int)bd.image[i]);
-	}
-	fclose(fp3);
-	printf("Finished writing processed image.\n");
-
-	FILE* fp2;
-	fp2 = fopen("data/mask_output.txt", "w");
-	for (i = 0; i < height*width; i++) {
-		fprintf(fp2, "%d\n", (int)bd.boundaries[i]);
-	}
-	fclose(fp2);
-
 	char* output = ClassifyTestSet(training_set, test_set, k);
 
-	//write output to file
-	FILE* fp;
-	fp = fopen("data/ocr_output.txt", "w");
-	for (i = 0; i < test_set->Size; i++) {
-		fprintf(fp, "%c", output[i]);
+	puts("Output:");
+	printf("%s\n", output);
+
+	if (write) {
+		//write output to file
+		FILE* fp3;
+		fp3 = fopen("data/output.txt", "w");
+		for (i = 0; i < height*width; i++) {
+			fprintf(fp3, "%d\n", (int)bd.image[i]);
+		}
+		fclose(fp3);
+
+		FILE* fp2;
+		fp2 = fopen("data/mask_output.txt", "w");
+		for (i = 0; i < height*width; i++) {
+			fprintf(fp2, "%d\n", (int)bd.boundaries[i]);
+		}
+		fclose(fp2);
+
+		//write output to file
+		FILE* fp;
+		fp = fopen("data/ocr_output.txt", "w");
+		for (i = 0; i < test_set->Size; i++) {
+			fprintf(fp, "%c", output[i]);
+		}
+		fclose(fp);
 	}
-	fclose(fp);
+
+
 
 	// free allocated memory
 	BinaryDocument_Free(&bd);
@@ -110,7 +142,7 @@ void TrainFromFile(DataSet* ts, char* input_file) {
 	//deskew the document
 	//Deskew(&binary_doc);
 
-	char* class_labels = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+	char* class_labels = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?!";
 
 	TrainTrainingSet(ts, &binary_doc, class_labels, CHAR_COUNT);
 
@@ -138,10 +170,12 @@ void TrainFromFile(DataSet* ts, char* input_file) {
 void TrainingTest() {
 	DataSet* ts = EmptyDataSet();
 	int size;
-	TrainFromFile(ts, "data/tahoma.bmp");
-	TrainFromFile(ts, "data/verdana.bmp");
-	TrainFromFile(ts, "data/roboto.bmp");
-	TrainFromFile(ts, "data/arial.bmp");
+	TrainFromFile(ts, "data/training/tahoma.bmp");
+	TrainFromFile(ts, "data/training/verdana.bmp");
+	TrainFromFile(ts, "data/training/roboto.bmp");
+	TrainFromFile(ts, "data/training/arial.bmp");
+	TrainFromFile(ts, "data/training/calibri.bmp");
+	TrainFromFile(ts, "data/training/open_sans.bmp");
 
 	WriteTrainingSet(ts);
 	FreeDataSet(ts);
@@ -162,5 +196,5 @@ main(void)
 #endif
 
 	//TrainingTest();
-	OCRTest("data/test_set_1.bmp", 3);
+	OCRTest(3, 1);
 }

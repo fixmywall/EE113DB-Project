@@ -12,9 +12,9 @@
 *	When superimposed with the original document, the lines should identify each indvidual character and space.
 */
 
-static const double HOR_THRESHOLD = 0.003;			//horizontal slice considered a space if proportion of foreground pixels <= this
-static const double VERT_THRESHOLD = 0;
-static const double PUNCTUATION_THRESHOLD = 0.2;	//if the proportion of height of the character to the line width is below this, classify as a punctuation symbol
+static const double HOR_THRESHOLD = 0.001;			//horizontal slice considered a space if proportion of foreground pixels <= this
+static const double VERT_THRESHOLD = 0.05;
+static const double PUNCTUATION_THRESHOLD = 0.37;	//if the proportion of height of the character to the line width is below this, classify as a punctuation symbol
 static const double SPACE_THRESHOLD = 0.6;			// if gap larger than this times avg char width, classify gap as a space
 
 static int total_char_width = 0;	// running sum of the width of the segmented characters
@@ -121,23 +121,38 @@ void CharSegment(	DataSet* test_set, DataSet* ts, BinaryDocument* bd, unsigned c
 				int char_pos = (char_min_x + 1) + (char_min_y + 1) * bd->width;		// position of the beginning of the character (LLC) with respect to the entire document
 
 				int is_small_punct = 0;			// character is small punctuation (period, comma, quote, etc)
-				if ((double)char_width / line_height <= PUNCTUATION_THRESHOLD) {
-					int line_mid = (min_y + max_y) / 2;
-					if (char_min_y > line_mid || char_max_y < line_mid) {
+				int line_mid = (min_y + max_y) / 2;
+				if ((double)char_height / line_height <= PUNCTUATION_THRESHOLD) {
+					if (char_min_y > 0.9 * line_mid || char_max_y < 1.1 * line_mid) {
 						is_small_punct = 1;
 					}
 				}
 
 				double* feature_vector;
-				
-				/*	If the segmented character is classified as punctuation (period, etc.)*/
+
+				/*	If the segmented character is classified as a "small" punctuation (period, comma, etc.)*/
 				if (is_small_punct) {		
-					feature_vector = (double*)MemAllocate(1 * sizeof(double));
+					//check if starting point is lower than midpoint. If so, classify as either period or comma (very basic implementation)
+					if (char_min_y > 0.9 * line_mid) {
+						DataPoint* punct;
+
+						// if height is sufficiently bigger than its width, classify as a comma
+						if (char_height > 1.4 * char_width) {
+							punct = NewDataPoint(',', NULL);
+						}
+						else {		// classify as a period
+							punct = NewDataPoint('.', NULL);
+						}
+						AddTrainingData(test_set, punct);
+					}
+					else if (char_max_y < 1.1 * line_mid) {		// classify as single quote (since it's the most common)
+						DataPoint* punct = NewDataPoint('\'', NULL);
+						AddTrainingData(test_set, punct);
+					}
 				}
 
 				/*	If the segmented character is classified as a regular alphanumeric character	*/
 				else {	
-					// extract feature for small punctuation
 					feature_vector = GetFeatureVector(bd->image + char_pos, char_height, char_width, bd->width);
 					
 					// figure out if point is training data
@@ -214,9 +229,9 @@ DataSet* SegmentText(DataSet* training, BinaryDocument* bd, char* symbols, int n
 	// determine horizontal lines the in the mask
 	// spaces between lines are classified as horizontal slices where the % of foreground pixels is less than HOR_THRESHOLD
 	//int horz_text_encountered = 0;		// during row analysis, set to one once the program finds an image row that crosses through text
-	int text_run_start = 0;				// beginning of run of rows including text
+	int text_run_start = 0;					// beginning of run of rows including text
 	int text_run_end = 0;
-	int in_text_run = 0;						// signals whether in the middle of a current run
+	int in_text_run = 0;					// signals whether in the middle of a current run
 	for (y = 0; y < bd->height; y++) {
 		double pct_text = (double)hpp[y] / bd->width;
 
